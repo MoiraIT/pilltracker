@@ -1,5 +1,5 @@
 /* PillTracker service worker: makes the app open without an internet connection. */
-const VERSION = 'pilltracker-v1.0.0';
+const VERSION = 'pilltracker-v1.1.0';
 const SHELL = [
   './',
   './index.html',
