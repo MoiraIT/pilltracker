@@ -1,0 +1,3324 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PillTracker</title>
+<meta name="description" content="Simple, large-print medication reminders and log for patients and caregivers. Works offline, data stays on this device.">
+<meta name="theme-color" content="#14213D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PillTracker">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+@font-face{font-family:"Atkinson Hyperlegible";src:url("fonts/AtkinsonHyperlegible-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url("fonts/AtkinsonHyperlegible-Bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
+:root{
+  --bg:#FFFFFF; --ink:#14213D; --muted:#3D4A63; --surface:#EEF3FA; --line:#8A9AB5;
+  --go:#0A5C36; --go-ink:#FFFFFF; --stop:#A4161A; --stop-ink:#FFFFFF;
+  --warn:#FFE3A3; --warn-ink:#14213D; --focus:#1D4ED8; --pill-line:#14213D;
+  --radius-l:28px; --radius-m:16px; --scale:1;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1626; --ink:#F3F6FB; --muted:#C9D3E3; --surface:#1B2540; --line:#6B7C9E;
+    --go:#7CE3A8; --go-ink:#06240F; --stop:#FF9E9E; --stop-ink:#2B0306;
+    --warn:#F5C46B; --warn-ink:#1A1400; --focus:#93C5FD; --pill-line:#0F1626;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1626; --ink:#F3F6FB; --muted:#C9D3E3; --surface:#1B2540; --line:#6B7C9E;
+  --go:#7CE3A8; --go-ink:#06240F; --stop:#FF9E9E; --stop-ink:#2B0306;
+  --warn:#F5C46B; --warn-ink:#1A1400; --focus:#93C5FD; --pill-line:#0F1626;
+  color-scheme:dark;
+}
+html{font-size:calc(112.5% * var(--scale));scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%;background:var(--bg)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Atkinson Hyperlegible",Verdana,"Segoe UI",system-ui,sans-serif;line-height:1.5;min-height:100%}
+h1,h2,h3{line-height:1.2;margin:0}
+p{margin:0}
+:focus-visible{outline:4px solid var(--focus);outline-offset:3px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.ic{width:1.45em;height:1.45em;flex:none}
+.wrap{max-width:40rem;margin:0 auto;padding:1.25rem 1.1rem 5rem}
+
+/* Buttons */
+.btn{min-height:3.5rem;min-width:3.5rem;padding:.6rem 1.15rem;font:inherit;font-size:1.1rem;font-weight:700;line-height:1.2;border-radius:var(--radius-m);border:3px solid var(--ink);background:var(--bg);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:.55rem;cursor:pointer;touch-action:manipulation;text-decoration:none;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn-go{background:var(--go);color:var(--go-ink);border-color:var(--go)}
+.btn-stop{background:var(--stop);color:var(--stop-ink);border-color:var(--stop)}
+.btn-huge{width:100%;min-height:6rem;font-size:1.9rem;border-radius:var(--radius-l)}
+.btn-huge .ic{width:1.3em;height:1.3em}
+.btn-small{min-height:3rem;font-size:1rem;padding:.45rem .9rem}
+.btn-quiet{border-color:transparent;background:transparent;text-decoration:underline;text-underline-offset:.2em}
+.btn-block{width:100%}
+@media (prefers-reduced-motion:reduce){.btn:active{transform:none}}
+
+/* Patient header */
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+.greet{font-size:1.65rem;font-weight:700}
+.today-date{font-size:1.15rem;color:var(--muted);margin-top:.15rem}
+
+/* The compartment: next dose card */
+.dose-card{border:3px solid var(--ink);border-radius:var(--radius-l);overflow:hidden;margin:1.25rem 0 2.25rem;background:var(--bg)}
+.dose-lid{background:var(--ink);color:var(--bg);padding:1rem 1.25rem 1.1rem;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:.6rem 1rem}
+.daypart{font-size:1.2rem;display:block}
+.dose-time{font-size:3.4rem;font-weight:700;line-height:1;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.chip{font-weight:700;font-size:1.1rem;padding:.4rem .9rem;border-radius:999px;background:var(--bg);color:var(--ink);white-space:nowrap}
+.chip-due{background:var(--warn);color:var(--warn-ink)}
+.chip-late{background:var(--stop);color:var(--stop-ink)}
+.dose-body{padding:1.25rem;display:grid;grid-template-columns:auto minmax(0,1fr);gap:1rem 1.2rem;align-items:center}
+.med-name{font-size:clamp(1.6rem,7vw,2.1rem);font-weight:700;line-height:1.1;overflow-wrap:break-word;hyphens:auto;min-width:0}
+.med-dose{font-size:1.4rem;margin-top:.25rem}
+.tags{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;margin:0;padding:0}
+.tag{display:inline-flex;gap:.45rem;align-items:center;border:2px solid var(--line);border-radius:999px;padding:.3rem .85rem .3rem .55rem;font-size:1.1rem;font-weight:700}
+.instr{grid-column:1/-1;font-size:1.3rem;background:var(--surface);border-radius:var(--radius-m);padding:.9rem 1.05rem}
+.dose-actions{padding:0 1.25rem 1.25rem;display:grid;gap:.75rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+@media (max-width:420px){.dose-body .pill{width:4.2rem;height:4.2rem}.greet{font-size:1.45rem}}
+@media (max-width:380px){.row2{grid-template-columns:1fr}.dose-time{font-size:2.9rem}}
+.done-body{grid-template-columns:auto 1fr}
+.done-body .big-check{width:4.5rem;height:4.5rem;color:var(--go)}
+
+/* Today list: a real timeline */
+.section-title{font-size:1.45rem;margin:0 0 .75rem}
+.day-list{list-style:none;margin:0 0 2rem;padding:0 0 0 .9rem;border-left:4px solid var(--line)}
+.day-row{width:100%;display:grid;grid-template-columns:5.2rem 2.4rem minmax(0,1fr);gap:.2rem .8rem;align-items:center;text-align:left;padding:.75rem .7rem;border:0;background:none;font:inherit;color:inherit;min-height:3.5rem;cursor:pointer;border-radius:var(--radius-m)}
+.day-row:hover{background:var(--surface)}
+.row-time{font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums}
+.row-main{display:flex;flex-direction:column;min-width:0}
+.row-name{font-weight:700;font-size:1.2rem;overflow-wrap:break-word}
+.row-dose{color:var(--muted)}
+.row-status{grid-column:3;display:inline-flex;align-items:center;gap:.4rem;font-weight:700}
+.st-taken .row-status{color:var(--go)}
+.st-late .row-status,.st-missed .row-status{color:var(--stop)}
+.st-taken .row-name{color:var(--muted)}
+.is-focus{background:var(--surface);outline:3px solid var(--ink)}
+.note{background:var(--surface);border-radius:var(--radius-m);padding:1rem 1.1rem;font-size:1.05rem;margin-bottom:1.5rem}
+
+/* Caregiver */
+.cg-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+.cg-head h1{font-size:1.8rem}
+.tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.tab{flex:1 1 auto}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.panel{display:grid;gap:2rem}
+.panel h2{font-size:1.45rem;margin-bottom:.75rem}
+.banner{border-radius:var(--radius-m);padding:1rem 1.1rem;font-size:1.1rem}
+.banner-stop{background:var(--stop);color:var(--stop-ink)}
+.banner ul{margin:.5rem 0 0;padding-left:1.2rem}
+.stat{font-size:2rem;font-weight:700}
+.track{display:flex;gap:5px;margin:.75rem 0 .5rem}
+.seg{flex:1;height:1.5rem;border-radius:6px;background:var(--surface);border:2px solid var(--line)}
+.seg.taken{background:var(--go);border-color:var(--go)}
+.seg.late,.seg.missed{background:var(--stop);border-color:var(--stop)}
+.seg.due{background:var(--warn);border-color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;color:var(--muted);font-size:1rem}
+.legend span{display:inline-flex;align-items:center;gap:.4rem}
+.legend i{width:1rem;height:1rem;border-radius:4px;display:inline-block;border:2px solid var(--line)}
+.cg-list{list-style:none;margin:0;padding:0;display:grid;gap:.25rem}
+.cg-row{display:grid;grid-template-columns:5.2rem 2.4rem minmax(0,1fr);gap:.2rem .8rem;align-items:center;padding:.6rem 0;border-bottom:2px solid var(--surface)}
+.cg-row .row-status{grid-column:3}
+.cg-row .btn{grid-column:3;justify-self:start;margin-top:.3rem}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:.4rem;align-items:end}
+.wk{display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.wk-track{height:7rem;width:100%;max-width:2.6rem;background:var(--surface);border-radius:8px;display:flex;align-items:flex-end;overflow:hidden}
+.wk-bar{width:100%;background:var(--go);border-radius:8px 8px 0 0}
+.wk-bar.mid{background:var(--warn)}
+.wk-bar.low{background:var(--stop)}
+.wk-pct{font-weight:700;font-size:.95rem}
+.wk-day{color:var(--muted);font-size:.95rem}
+.stock-row{display:grid;grid-template-columns:2.4rem minmax(0,1fr) auto;gap:.2rem .8rem;align-items:center;padding:.7rem 0;border-bottom:2px solid var(--surface)}
+.badge{font-weight:700;padding:.3rem .75rem;border-radius:999px;font-size:1rem;white-space:nowrap}
+.badge-stop{background:var(--stop);color:var(--stop-ink)}
+.badge-ok{border:2px solid var(--line)}
+.actions{display:flex;flex-wrap:wrap;gap:.75rem}
+.med-card{border:3px solid var(--line);border-radius:var(--radius-m);padding:1rem;display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;align-items:start}
+.med-card.paused{opacity:.75;border-style:dashed}
+.med-card h3{font-size:1.35rem}
+.med-card .actions{grid-column:1/-1}
+.med-meta{color:var(--muted)}
+
+/* Forms */
+.card-form{display:grid;gap:1.4rem}
+.field{display:grid;gap:.4rem;border:0;margin:0;padding:0;min-width:0}
+.field legend,.field>label{font-weight:700;font-size:1.15rem;padding:0;margin-bottom:.4rem}
+.hint{color:var(--muted);font-size:1rem;font-weight:400}
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=time],input[type=password],input:not([type]),select,textarea{font:inherit;font-size:1.15rem;min-height:3.4rem;padding:.55rem .85rem;border:2px solid var(--ink);border-radius:12px;background:var(--bg);color:var(--ink);width:100%}
+textarea{resize:vertical}
+input[type=radio],input[type=checkbox]{width:1.55rem;height:1.55rem;accent-color:var(--go);margin:0;flex:none}
+.choice-grid{display:flex;flex-wrap:wrap;gap:.55rem}
+.choice{display:inline-flex;align-items:center;gap:.55rem;border:2px solid var(--line);border-radius:12px;padding:.5rem .85rem;min-height:3.4rem;cursor:pointer;font-weight:700}
+.choice:has(input:checked){border:3px solid var(--ink);background:var(--surface)}
+.swatch{width:1.5rem;height:1.5rem;border-radius:50%;border:2px solid var(--ink);display:inline-block}
+.check{display:flex;gap:.8rem;align-items:flex-start;min-height:3.4rem;cursor:pointer;font-size:1.1rem}
+.check input{margin-top:.15rem}
+.time-row{display:flex;gap:.6rem;margin-bottom:.6rem}
+.time-row input{flex:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-error{color:var(--stop);font-weight:700}
+.form-error:empty{display:none}
+.settings-group{display:grid;gap:1.1rem;border-top:3px solid var(--surface);padding-top:1.25rem}
+.size-sample{font-weight:700}
+
+/* Dialogs */
+dialog{border:3px solid var(--ink);border-radius:var(--radius-l);padding:0;width:calc(100% - 2rem);max-width:36rem;max-height:calc(100% - 2rem);background:var(--bg);color:var(--ink)}
+dialog::backdrop{background:rgba(8,12,24,.72)}
+.dlg{padding:1.4rem;display:grid;gap:1.1rem}
+.dlg h2{font-size:1.7rem}
+.dlg ul:not(.tags){margin:0;padding-left:1.3rem;display:grid;gap:.6rem;font-size:1.1rem}
+.alarm .dose-actions{padding:0}
+.alarm-kicker{font-size:1.25rem;font-weight:700}
+.alarm.is-late .alarm-kicker{color:var(--stop)}
+.alarm-head{display:flex;gap:1rem;align-items:center}
+.contact{display:grid;gap:.6rem;border-top:3px solid var(--surface);padding-top:1rem}
+
+/* Toast */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1rem + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:.75rem .9rem .75rem 1.1rem;border-radius:var(--radius-m);display:flex;gap:1rem;align-items:center;width:max-content;max-width:calc(100% - 2rem);font-size:1.1rem;z-index:10}
+.toast[hidden]{display:none}
+.toast .btn{background:var(--bg);color:var(--ink);border-color:var(--bg);min-height:3rem}
+
+#print-report{display:none}
+@media print{
+  #app,dialog,.toast{display:none!important}
+  #print-report{display:block!important;color:#000;background:#fff;font-size:12pt}
+  #print-report table{border-collapse:collapse;width:100%;margin:1em 0}
+  #print-report th,#print-report td{border:1px solid #555;padding:.35em .5em;text-align:left;vertical-align:top}
+}
+.share-qr{display:flex;justify-content:center;margin:1rem 0}.share-qr svg{width:min(70vw,280px);height:auto;border-radius:8px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="live" class="sr-only" role="status" aria-live="polite"></div>
+<div id="toast" class="toast" hidden><span id="toast-msg"></span></div>
+<dialog id="dlg-alarm" role="alertdialog"></dialog>
+<dialog id="dlg-pin" aria-labelledby="pin-title">
+  <form id="pin-form" class="dlg" novalidate>
+    <h2 id="pin-title">Area di chi assiste</h2>
+    <div class="field"><label for="pin-input">Inserisci il PIN di chi assiste</label>
+      <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+    <p class="form-error" id="pin-error" role="alert"></p>
+    <div class="row2"><button class="btn btn-go" type="submit">Apri</button><button class="btn" type="button" data-action="pin-cancel">Annulla</button></div>
+    <button class="btn btn-quiet" type="button" data-action="pin-forgot">PIN dimenticato?</button>
+  </form>
+</dialog>
+<dialog id="dlg-share" aria-labelledby="share-title">
+  <div class="dlg">
+    <h2 id="share-title">Condividi il piano</h2>
+    <p>Sul tablet del paziente inquadra questo codice con la fotocamera e tocca il link che appare. Farmaci e orari vengono copiati su quel dispositivo.</p>
+    <div id="share-qr" class="share-qr" role="img" aria-label="Codice QR con il piano dei farmaci"></div>
+    <div class="field"><label for="share-link">Oppure copia il link</label><input id="share-link" readonly onfocus="this.select()"></div>
+    <p class="hint">Questo codice contiene farmaci e i tuoi recapiti, ma non il PIN né lo storico delle dosi. Dopo ogni modifica, mostra un nuovo codice.</p>
+    <div class="row2"><button class="btn btn-go" type="button" data-action="copy-link">Copia il link</button><button class="btn" type="button" data-action="share-close">Chiudi</button></div>
+  </div>
+</dialog>
+<dialog id="dlg-welcome" aria-labelledby="welcome-title">
+  <div class="dlg">
+    <h2 id="welcome-title">Benvenuto in PillTracker</h2>
+    <p style="font-size:1.2rem">PillTracker ti ricorda quando prendere i farmaci e tiene un registro semplice di ciò che hai preso.</p>
+    <ul>
+      <li>Tutto resta su questo dispositivo. Non viene inviato nulla in rete.</li>
+      <li>I promemoria suonano mentre PillTracker è aperto. Per riceverli anche a app chiusa, aggiungili al calendario del telefono dalle impostazioni di chi assiste.</li>
+      <li>PillTracker non sostituisce i consigli del medico o del farmacista.</li>
+    </ul>
+    <button class="btn btn-go btn-block" data-action="onboard-sample">Prova con farmaci di esempio</button>
+    <button class="btn btn-block" data-action="onboard-empty">Inizia con una lista vuota</button>
+  </div>
+</dialog>
+<input type="file" id="restore-input" accept="application/json,.json" hidden>
+<section id="print-report" aria-hidden="true"></section>
+
+<script>
+/* qrcode-generator 1.4.4, MIT License, Copyright (c) 2009 Kazuhiko Arase, http://www.d-project.com/ */
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+var qrcode = function() {
+
+  //---------------------------------------------------------------------
+  // qrcode
+  //---------------------------------------------------------------------
+
+  /**
+   * qrcode
+   * @param typeNumber 1 to 40
+   * @param errorCorrectionLevel 'L','M','Q','H'
+   */
+  var qrcode = function(typeNumber, errorCorrectionLevel) {
+
+    var PAD0 = 0xEC;
+    var PAD1 = 0x11;
+
+    var _typeNumber = typeNumber;
+    var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules = null;
+    var _moduleCount = 0;
+    var _dataCache = null;
+    var _dataList = [];
+
+    var _this = {};
+
+    var makeImpl = function(test, maskPattern) {
+
+      _moduleCount = _typeNumber * 4 + 17;
+      _modules = function(moduleCount) {
+        var modules = new Array(moduleCount);
+        for (var row = 0; row < moduleCount; row += 1) {
+          modules[row] = new Array(moduleCount);
+          for (var col = 0; col < moduleCount; col += 1) {
+            modules[row][col] = null;
+          }
+        }
+        return modules;
+      }(_moduleCount);
+
+      setupPositionProbePattern(0, 0);
+      setupPositionProbePattern(_moduleCount - 7, 0);
+      setupPositionProbePattern(0, _moduleCount - 7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test, maskPattern);
+
+      if (_typeNumber >= 7) {
+        setupTypeNumber(test);
+      }
+
+      if (_dataCache == null) {
+        _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+      }
+
+      mapData(_dataCache, maskPattern);
+    };
+
+    var setupPositionProbePattern = function(row, col) {
+
+      for (var r = -1; r <= 7; r += 1) {
+
+        if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+        for (var c = -1; c <= 7; c += 1) {
+
+          if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+          if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+              || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+              || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+            _modules[row + r][col + c] = true;
+          } else {
+            _modules[row + r][col + c] = false;
+          }
+        }
+      }
+    };
+
+    var getBestMaskPattern = function() {
+
+      var minLostPoint = 0;
+      var pattern = 0;
+
+      for (var i = 0; i < 8; i += 1) {
+
+        makeImpl(true, i);
+
+        var lostPoint = QRUtil.getLostPoint(_this);
+
+        if (i == 0 || minLostPoint > lostPoint) {
+          minLostPoint = lostPoint;
+          pattern = i;
+        }
+      }
+
+      return pattern;
+    };
+
+    var setupTimingPattern = function() {
+
+      for (var r = 8; r < _moduleCount - 8; r += 1) {
+        if (_modules[r][6] != null) {
+          continue;
+        }
+        _modules[r][6] = (r % 2 == 0);
+      }
+
+      for (var c = 8; c < _moduleCount - 8; c += 1) {
+        if (_modules[6][c] != null) {
+          continue;
+        }
+        _modules[6][c] = (c % 2 == 0);
+      }
+    };
+
+    var setupPositionAdjustPattern = function() {
+
+      var pos = QRUtil.getPatternPosition(_typeNumber);
+
+      for (var i = 0; i < pos.length; i += 1) {
+
+        for (var j = 0; j < pos.length; j += 1) {
+
+          var row = pos[i];
+          var col = pos[j];
+
+          if (_modules[row][col] != null) {
+            continue;
+          }
+
+          for (var r = -2; r <= 2; r += 1) {
+
+            for (var c = -2; c <= 2; c += 1) {
+
+              if (r == -2 || r == 2 || c == -2 || c == 2
+                  || (r == 0 && c == 0) ) {
+                _modules[row + r][col + c] = true;
+              } else {
+                _modules[row + r][col + c] = false;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    var setupTypeNumber = function(test) {
+
+      var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+      }
+
+      for (var i = 0; i < 18; i += 1) {
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+        _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+      }
+    };
+
+    var setupTypeInfo = function(test, maskPattern) {
+
+      var data = (_errorCorrectionLevel << 3) | maskPattern;
+      var bits = QRUtil.getBCHTypeInfo(data);
+
+      // vertical
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 6) {
+          _modules[i][8] = mod;
+        } else if (i < 8) {
+          _modules[i + 1][8] = mod;
+        } else {
+          _modules[_moduleCount - 15 + i][8] = mod;
+        }
+      }
+
+      // horizontal
+      for (var i = 0; i < 15; i += 1) {
+
+        var mod = (!test && ( (bits >> i) & 1) == 1);
+
+        if (i < 8) {
+          _modules[8][_moduleCount - i - 1] = mod;
+        } else if (i < 9) {
+          _modules[8][15 - i - 1 + 1] = mod;
+        } else {
+          _modules[8][15 - i - 1] = mod;
+        }
+      }
+
+      // fixed module
+      _modules[_moduleCount - 8][8] = (!test);
+    };
+
+    var mapData = function(data, maskPattern) {
+
+      var inc = -1;
+      var row = _moduleCount - 1;
+      var bitIndex = 7;
+      var byteIndex = 0;
+      var maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+      for (var col = _moduleCount - 1; col > 0; col -= 2) {
+
+        if (col == 6) col -= 1;
+
+        while (true) {
+
+          for (var c = 0; c < 2; c += 1) {
+
+            if (_modules[row][col - c] == null) {
+
+              var dark = false;
+
+              if (byteIndex < data.length) {
+                dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+              }
+
+              var mask = maskFunc(row, col - c);
+
+              if (mask) {
+                dark = !dark;
+              }
+
+              _modules[row][col - c] = dark;
+              bitIndex -= 1;
+
+              if (bitIndex == -1) {
+                byteIndex += 1;
+                bitIndex = 7;
+              }
+            }
+          }
+
+          row += inc;
+
+          if (row < 0 || _moduleCount <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    };
+
+    var createBytes = function(buffer, rsBlocks) {
+
+      var offset = 0;
+
+      var maxDcCount = 0;
+      var maxEcCount = 0;
+
+      var dcdata = new Array(rsBlocks.length);
+      var ecdata = new Array(rsBlocks.length);
+
+      for (var r = 0; r < rsBlocks.length; r += 1) {
+
+        var dcCount = rsBlocks[r].dataCount;
+        var ecCount = rsBlocks[r].totalCount - dcCount;
+
+        maxDcCount = Math.max(maxDcCount, dcCount);
+        maxEcCount = Math.max(maxEcCount, ecCount);
+
+        dcdata[r] = new Array(dcCount);
+
+        for (var i = 0; i < dcdata[r].length; i += 1) {
+          dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+        }
+        offset += dcCount;
+
+        var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+        var modPoly = rawPoly.mod(rsPoly);
+        ecdata[r] = new Array(rsPoly.getLength() - 1);
+        for (var i = 0; i < ecdata[r].length; i += 1) {
+          var modIndex = i + modPoly.getLength() - ecdata[r].length;
+          ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+        }
+      }
+
+      var totalCodeCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalCodeCount += rsBlocks[i].totalCount;
+      }
+
+      var data = new Array(totalCodeCount);
+      var index = 0;
+
+      for (var i = 0; i < maxDcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < dcdata[r].length) {
+            data[index] = dcdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      for (var i = 0; i < maxEcCount; i += 1) {
+        for (var r = 0; r < rsBlocks.length; r += 1) {
+          if (i < ecdata[r].length) {
+            data[index] = ecdata[r][i];
+            index += 1;
+          }
+        }
+      }
+
+      return data;
+    };
+
+    var createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+      var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+      var buffer = qrBitBuffer();
+
+      for (var i = 0; i < dataList.length; i += 1) {
+        var data = dataList[i];
+        buffer.put(data.getMode(), 4);
+        buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+        data.write(buffer);
+      }
+
+      // calc num max data.
+      var totalDataCount = 0;
+      for (var i = 0; i < rsBlocks.length; i += 1) {
+        totalDataCount += rsBlocks[i].dataCount;
+      }
+
+      if (buffer.getLengthInBits() > totalDataCount * 8) {
+        throw 'code length overflow. ('
+          + buffer.getLengthInBits()
+          + '>'
+          + totalDataCount * 8
+          + ')';
+      }
+
+      // end code
+      if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+        buffer.put(0, 4);
+      }
+
+      // padding
+      while (buffer.getLengthInBits() % 8 != 0) {
+        buffer.putBit(false);
+      }
+
+      // padding
+      while (true) {
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD0, 8);
+
+        if (buffer.getLengthInBits() >= totalDataCount * 8) {
+          break;
+        }
+        buffer.put(PAD1, 8);
+      }
+
+      return createBytes(buffer, rsBlocks);
+    };
+
+    _this.addData = function(data, mode) {
+
+      mode = mode || 'Byte';
+
+      var newData = null;
+
+      switch(mode) {
+      case 'Numeric' :
+        newData = qrNumber(data);
+        break;
+      case 'Alphanumeric' :
+        newData = qrAlphaNum(data);
+        break;
+      case 'Byte' :
+        newData = qr8BitByte(data);
+        break;
+      case 'Kanji' :
+        newData = qrKanji(data);
+        break;
+      default :
+        throw 'mode:' + mode;
+      }
+
+      _dataList.push(newData);
+      _dataCache = null;
+    };
+
+    _this.isDark = function(row, col) {
+      if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+        throw row + ',' + col;
+      }
+      return _modules[row][col];
+    };
+
+    _this.getModuleCount = function() {
+      return _moduleCount;
+    };
+
+    _this.make = function() {
+      if (_typeNumber < 1) {
+        var typeNumber = 1;
+
+        for (; typeNumber < 40; typeNumber++) {
+          var rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+          var buffer = qrBitBuffer();
+
+          for (var i = 0; i < _dataList.length; i++) {
+            var data = _dataList[i];
+            buffer.put(data.getMode(), 4);
+            buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+            data.write(buffer);
+          }
+
+          var totalDataCount = 0;
+          for (var i = 0; i < rsBlocks.length; i++) {
+            totalDataCount += rsBlocks[i].dataCount;
+          }
+
+          if (buffer.getLengthInBits() <= totalDataCount * 8) {
+            break;
+          }
+        }
+
+        _typeNumber = typeNumber;
+      }
+
+      makeImpl(false, getBestMaskPattern() );
+    };
+
+    _this.createTableTag = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var qrHtml = '';
+
+      qrHtml += '<table style="';
+      qrHtml += ' border-width: 0px; border-style: none;';
+      qrHtml += ' border-collapse: collapse;';
+      qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+      qrHtml += '">';
+      qrHtml += '<tbody>';
+
+      for (var r = 0; r < _this.getModuleCount(); r += 1) {
+
+        qrHtml += '<tr>';
+
+        for (var c = 0; c < _this.getModuleCount(); c += 1) {
+          qrHtml += '<td style="';
+          qrHtml += ' border-width: 0px; border-style: none;';
+          qrHtml += ' border-collapse: collapse;';
+          qrHtml += ' padding: 0px; margin: 0px;';
+          qrHtml += ' width: ' + cellSize + 'px;';
+          qrHtml += ' height: ' + cellSize + 'px;';
+          qrHtml += ' background-color: ';
+          qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+          qrHtml += ';';
+          qrHtml += '"/>';
+        }
+
+        qrHtml += '</tr>';
+      }
+
+      qrHtml += '</tbody>';
+      qrHtml += '</table>';
+
+      return qrHtml;
+    };
+
+    _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+      var opts = {};
+      if (typeof arguments[0] == 'object') {
+        // Called by options.
+        opts = arguments[0];
+        // overwrite cellSize and margin.
+        cellSize = opts.cellSize;
+        margin = opts.margin;
+        alt = opts.alt;
+        title = opts.title;
+      }
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      // Compose alt property surrogate
+      alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+      alt.text = alt.text || null;
+      alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+      // Compose title property surrogate
+      title = (typeof title === 'string') ? {text: title} : title || {};
+      title.text = title.text || null;
+      title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var c, mc, r, mr, qrSvg='', rect;
+
+      rect = 'l' + cellSize + ',0 0,' + cellSize +
+        ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+      qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+      qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+      qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+      qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+      qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+          escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+      qrSvg += '>';
+      qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+          escapeXml(title.text) + '</title>' : '';
+      qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+          escapeXml(alt.text) + '</description>' : '';
+      qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+      qrSvg += '<path d="';
+
+      for (r = 0; r < _this.getModuleCount(); r += 1) {
+        mr = r * cellSize + margin;
+        for (c = 0; c < _this.getModuleCount(); c += 1) {
+          if (_this.isDark(r, c) ) {
+            mc = c*cellSize+margin;
+            qrSvg += 'M' + mc + ',' + mr + rect;
+          }
+        }
+      }
+
+      qrSvg += '" stroke="transparent" fill="black"/>';
+      qrSvg += '</svg>';
+
+      return qrSvg;
+    };
+
+    _this.createDataURL = function(cellSize, margin) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      return createDataURL(size, size, function(x, y) {
+        if (min <= x && x < max && min <= y && y < max) {
+          var c = Math.floor( (x - min) / cellSize);
+          var r = Math.floor( (y - min) / cellSize);
+          return _this.isDark(r, c)? 0 : 1;
+        } else {
+          return 1;
+        }
+      } );
+    };
+
+    _this.createImgTag = function(cellSize, margin, alt) {
+
+      cellSize = cellSize || 2;
+      margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+
+      var img = '';
+      img += '<img';
+      img += '\u0020src="';
+      img += _this.createDataURL(cellSize, margin);
+      img += '"';
+      img += '\u0020width="';
+      img += size;
+      img += '"';
+      img += '\u0020height="';
+      img += size;
+      img += '"';
+      if (alt) {
+        img += '\u0020alt="';
+        img += escapeXml(alt);
+        img += '"';
+      }
+      img += '/>';
+
+      return img;
+    };
+
+    var escapeXml = function(s) {
+      var escaped = '';
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charAt(i);
+        switch(c) {
+        case '<': escaped += '&lt;'; break;
+        case '>': escaped += '&gt;'; break;
+        case '&': escaped += '&amp;'; break;
+        case '"': escaped += '&quot;'; break;
+        default : escaped += c; break;
+        }
+      }
+      return escaped;
+    };
+
+    var _createHalfASCII = function(margin) {
+      var cellSize = 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r1, r2, p;
+
+      var blocks = {
+        '██': '█',
+        '█ ': '▀',
+        ' █': '▄',
+        '  ': ' '
+      };
+
+      var blocksLastLineNoMargin = {
+        '██': '▀',
+        '█ ': '▀',
+        ' █': ' ',
+        '  ': ' '
+      };
+
+      var ascii = '';
+      for (y = 0; y < size; y += 2) {
+        r1 = Math.floor((y - min) / cellSize);
+        r2 = Math.floor((y + 1 - min) / cellSize);
+        for (x = 0; x < size; x += 1) {
+          p = '█';
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+            p = ' ';
+          }
+
+          if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+            p += ' ';
+          }
+          else {
+            p += '█';
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+        }
+
+        ascii += '\n';
+      }
+
+      if (size % 2 && margin > 0) {
+        return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.createASCII = function(cellSize, margin) {
+      cellSize = cellSize || 1;
+
+      if (cellSize < 2) {
+        return _createHalfASCII(margin);
+      }
+
+      cellSize -= 1;
+      margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+      var size = _this.getModuleCount() * cellSize + margin * 2;
+      var min = margin;
+      var max = size - margin;
+
+      var y, x, r, p;
+
+      var white = Array(cellSize+1).join('██');
+      var black = Array(cellSize+1).join('  ');
+
+      var ascii = '';
+      var line = '';
+      for (y = 0; y < size; y += 1) {
+        r = Math.floor( (y - min) / cellSize);
+        line = '';
+        for (x = 0; x < size; x += 1) {
+          p = 1;
+
+          if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+            p = 0;
+          }
+
+          // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+          line += p ? white : black;
+        }
+
+        for (r = 0; r < cellSize; r += 1) {
+          ascii += line + '\n';
+        }
+      }
+
+      return ascii.substring(0, ascii.length-1);
+    };
+
+    _this.renderTo2dContext = function(context, cellSize) {
+      cellSize = cellSize || 2;
+      var length = _this.getModuleCount();
+      for (var row = 0; row < length; row++) {
+        for (var col = 0; col < length; col++) {
+          context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+          context.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+        }
+      }
+    }
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrcode.stringToBytes
+  //---------------------------------------------------------------------
+
+  qrcode.stringToBytesFuncs = {
+    'default' : function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        bytes.push(c & 0xff);
+      }
+      return bytes;
+    }
+  };
+
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['default'];
+
+  //---------------------------------------------------------------------
+  // qrcode.createStringToBytes
+  //---------------------------------------------------------------------
+
+  /**
+   * @param unicodeData base64 string of byte array.
+   * [16bit Unicode],[16bit Bytes], ...
+   * @param numChars
+   */
+  qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+    // create conversion map.
+
+    var unicodeMap = function() {
+
+      var bin = base64DecodeInputStream(unicodeData);
+      var read = function() {
+        var b = bin.read();
+        if (b == -1) throw 'eof';
+        return b;
+      };
+
+      var count = 0;
+      var unicodeMap = {};
+      while (true) {
+        var b0 = bin.read();
+        if (b0 == -1) break;
+        var b1 = read();
+        var b2 = read();
+        var b3 = read();
+        var k = String.fromCharCode( (b0 << 8) | b1);
+        var v = (b2 << 8) | b3;
+        unicodeMap[k] = v;
+        count += 1;
+      }
+      if (count != numChars) {
+        throw count + ' != ' + numChars;
+      }
+
+      return unicodeMap;
+    }();
+
+    var unknownChar = '?'.charCodeAt(0);
+
+    return function(s) {
+      var bytes = [];
+      for (var i = 0; i < s.length; i += 1) {
+        var c = s.charCodeAt(i);
+        if (c < 128) {
+          bytes.push(c);
+        } else {
+          var b = unicodeMap[s.charAt(i)];
+          if (typeof b == 'number') {
+            if ( (b & 0xff) == b) {
+              // 1byte
+              bytes.push(b);
+            } else {
+              // 2bytes
+              bytes.push(b >>> 8);
+              bytes.push(b & 0xff);
+            }
+          } else {
+            bytes.push(unknownChar);
+          }
+        }
+      }
+      return bytes;
+    };
+  };
+
+  //---------------------------------------------------------------------
+  // QRMode
+  //---------------------------------------------------------------------
+
+  var QRMode = {
+    MODE_NUMBER :    1 << 0,
+    MODE_ALPHA_NUM : 1 << 1,
+    MODE_8BIT_BYTE : 1 << 2,
+    MODE_KANJI :     1 << 3
+  };
+
+  //---------------------------------------------------------------------
+  // QRErrorCorrectionLevel
+  //---------------------------------------------------------------------
+
+  var QRErrorCorrectionLevel = {
+    L : 1,
+    M : 0,
+    Q : 3,
+    H : 2
+  };
+
+  //---------------------------------------------------------------------
+  // QRMaskPattern
+  //---------------------------------------------------------------------
+
+  var QRMaskPattern = {
+    PATTERN000 : 0,
+    PATTERN001 : 1,
+    PATTERN010 : 2,
+    PATTERN011 : 3,
+    PATTERN100 : 4,
+    PATTERN101 : 5,
+    PATTERN110 : 6,
+    PATTERN111 : 7
+  };
+
+  //---------------------------------------------------------------------
+  // QRUtil
+  //---------------------------------------------------------------------
+
+  var QRUtil = function() {
+
+    var PATTERN_POSITION_TABLE = [
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90],
+      [6, 28, 50, 72, 94],
+      [6, 26, 50, 74, 98],
+      [6, 30, 54, 78, 102],
+      [6, 28, 54, 80, 106],
+      [6, 32, 58, 84, 110],
+      [6, 30, 58, 86, 114],
+      [6, 34, 62, 90, 118],
+      [6, 26, 50, 74, 98, 122],
+      [6, 30, 54, 78, 102, 126],
+      [6, 26, 52, 78, 104, 130],
+      [6, 30, 56, 82, 108, 134],
+      [6, 34, 60, 86, 112, 138],
+      [6, 30, 58, 86, 114, 142],
+      [6, 34, 62, 90, 118, 146],
+      [6, 30, 54, 78, 102, 126, 150],
+      [6, 24, 50, 76, 102, 128, 154],
+      [6, 28, 54, 80, 106, 132, 158],
+      [6, 32, 58, 84, 110, 136, 162],
+      [6, 26, 54, 82, 110, 138, 166],
+      [6, 30, 58, 86, 114, 142, 170]
+    ];
+    var G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+    var G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+    var G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+    var _this = {};
+
+    var getBCHDigit = function(data) {
+      var digit = 0;
+      while (data != 0) {
+        digit += 1;
+        data >>>= 1;
+      }
+      return digit;
+    };
+
+    _this.getBCHTypeInfo = function(data) {
+      var d = data << 10;
+      while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+        d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+      }
+      return ( (data << 10) | d) ^ G15_MASK;
+    };
+
+    _this.getBCHTypeNumber = function(data) {
+      var d = data << 12;
+      while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+        d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+      }
+      return (data << 12) | d;
+    };
+
+    _this.getPatternPosition = function(typeNumber) {
+      return PATTERN_POSITION_TABLE[typeNumber - 1];
+    };
+
+    _this.getMaskFunction = function(maskPattern) {
+
+      switch (maskPattern) {
+
+      case QRMaskPattern.PATTERN000 :
+        return function(i, j) { return (i + j) % 2 == 0; };
+      case QRMaskPattern.PATTERN001 :
+        return function(i, j) { return i % 2 == 0; };
+      case QRMaskPattern.PATTERN010 :
+        return function(i, j) { return j % 3 == 0; };
+      case QRMaskPattern.PATTERN011 :
+        return function(i, j) { return (i + j) % 3 == 0; };
+      case QRMaskPattern.PATTERN100 :
+        return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+      case QRMaskPattern.PATTERN101 :
+        return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+      case QRMaskPattern.PATTERN110 :
+        return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+      case QRMaskPattern.PATTERN111 :
+        return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+      default :
+        throw 'bad maskPattern:' + maskPattern;
+      }
+    };
+
+    _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+      var a = qrPolynomial([1], 0);
+      for (var i = 0; i < errorCorrectLength; i += 1) {
+        a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+      }
+      return a;
+    };
+
+    _this.getLengthInBits = function(mode, type) {
+
+      if (1 <= type && type < 10) {
+
+        // 1 - 9
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 10;
+        case QRMode.MODE_ALPHA_NUM : return 9;
+        case QRMode.MODE_8BIT_BYTE : return 8;
+        case QRMode.MODE_KANJI     : return 8;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 27) {
+
+        // 10 - 26
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 12;
+        case QRMode.MODE_ALPHA_NUM : return 11;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 10;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else if (type < 41) {
+
+        // 27 - 40
+
+        switch(mode) {
+        case QRMode.MODE_NUMBER    : return 14;
+        case QRMode.MODE_ALPHA_NUM : return 13;
+        case QRMode.MODE_8BIT_BYTE : return 16;
+        case QRMode.MODE_KANJI     : return 12;
+        default :
+          throw 'mode:' + mode;
+        }
+
+      } else {
+        throw 'type:' + type;
+      }
+    };
+
+    _this.getLostPoint = function(qrcode) {
+
+      var moduleCount = qrcode.getModuleCount();
+
+      var lostPoint = 0;
+
+      // LEVEL1
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount; col += 1) {
+
+          var sameCount = 0;
+          var dark = qrcode.isDark(row, col);
+
+          for (var r = -1; r <= 1; r += 1) {
+
+            if (row + r < 0 || moduleCount <= row + r) {
+              continue;
+            }
+
+            for (var c = -1; c <= 1; c += 1) {
+
+              if (col + c < 0 || moduleCount <= col + c) {
+                continue;
+              }
+
+              if (r == 0 && c == 0) {
+                continue;
+              }
+
+              if (dark == qrcode.isDark(row + r, col + c) ) {
+                sameCount += 1;
+              }
+            }
+          }
+
+          if (sameCount > 5) {
+            lostPoint += (3 + sameCount - 5);
+          }
+        }
+      };
+
+      // LEVEL2
+
+      for (var row = 0; row < moduleCount - 1; row += 1) {
+        for (var col = 0; col < moduleCount - 1; col += 1) {
+          var count = 0;
+          if (qrcode.isDark(row, col) ) count += 1;
+          if (qrcode.isDark(row + 1, col) ) count += 1;
+          if (qrcode.isDark(row, col + 1) ) count += 1;
+          if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+          if (count == 0 || count == 4) {
+            lostPoint += 3;
+          }
+        }
+      }
+
+      // LEVEL3
+
+      for (var row = 0; row < moduleCount; row += 1) {
+        for (var col = 0; col < moduleCount - 6; col += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row, col + 1)
+              &&  qrcode.isDark(row, col + 2)
+              &&  qrcode.isDark(row, col + 3)
+              &&  qrcode.isDark(row, col + 4)
+              && !qrcode.isDark(row, col + 5)
+              &&  qrcode.isDark(row, col + 6) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount - 6; row += 1) {
+          if (qrcode.isDark(row, col)
+              && !qrcode.isDark(row + 1, col)
+              &&  qrcode.isDark(row + 2, col)
+              &&  qrcode.isDark(row + 3, col)
+              &&  qrcode.isDark(row + 4, col)
+              && !qrcode.isDark(row + 5, col)
+              &&  qrcode.isDark(row + 6, col) ) {
+            lostPoint += 40;
+          }
+        }
+      }
+
+      // LEVEL4
+
+      var darkCount = 0;
+
+      for (var col = 0; col < moduleCount; col += 1) {
+        for (var row = 0; row < moduleCount; row += 1) {
+          if (qrcode.isDark(row, col) ) {
+            darkCount += 1;
+          }
+        }
+      }
+
+      var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+      lostPoint += ratio * 10;
+
+      return lostPoint;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // QRMath
+  //---------------------------------------------------------------------
+
+  var QRMath = function() {
+
+    var EXP_TABLE = new Array(256);
+    var LOG_TABLE = new Array(256);
+
+    // initialize tables
+    for (var i = 0; i < 8; i += 1) {
+      EXP_TABLE[i] = 1 << i;
+    }
+    for (var i = 8; i < 256; i += 1) {
+      EXP_TABLE[i] = EXP_TABLE[i - 4]
+        ^ EXP_TABLE[i - 5]
+        ^ EXP_TABLE[i - 6]
+        ^ EXP_TABLE[i - 8];
+    }
+    for (var i = 0; i < 255; i += 1) {
+      LOG_TABLE[EXP_TABLE[i] ] = i;
+    }
+
+    var _this = {};
+
+    _this.glog = function(n) {
+
+      if (n < 1) {
+        throw 'glog(' + n + ')';
+      }
+
+      return LOG_TABLE[n];
+    };
+
+    _this.gexp = function(n) {
+
+      while (n < 0) {
+        n += 255;
+      }
+
+      while (n >= 256) {
+        n -= 255;
+      }
+
+      return EXP_TABLE[n];
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrPolynomial
+  //---------------------------------------------------------------------
+
+  function qrPolynomial(num, shift) {
+
+    if (typeof num.length == 'undefined') {
+      throw num.length + '/' + shift;
+    }
+
+    var _num = function() {
+      var offset = 0;
+      while (offset < num.length && num[offset] == 0) {
+        offset += 1;
+      }
+      var _num = new Array(num.length - offset + shift);
+      for (var i = 0; i < num.length - offset; i += 1) {
+        _num[i] = num[i + offset];
+      }
+      return _num;
+    }();
+
+    var _this = {};
+
+    _this.getAt = function(index) {
+      return _num[index];
+    };
+
+    _this.getLength = function() {
+      return _num.length;
+    };
+
+    _this.multiply = function(e) {
+
+      var num = new Array(_this.getLength() + e.getLength() - 1);
+
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        for (var j = 0; j < e.getLength(); j += 1) {
+          num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+        }
+      }
+
+      return qrPolynomial(num, 0);
+    };
+
+    _this.mod = function(e) {
+
+      if (_this.getLength() - e.getLength() < 0) {
+        return _this;
+      }
+
+      var ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+      var num = new Array(_this.getLength() );
+      for (var i = 0; i < _this.getLength(); i += 1) {
+        num[i] = _this.getAt(i);
+      }
+
+      for (var i = 0; i < e.getLength(); i += 1) {
+        num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+      }
+
+      // recursive call
+      return qrPolynomial(num, 0).mod(e);
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // QRRSBlock
+  //---------------------------------------------------------------------
+
+  var QRRSBlock = function() {
+
+    var RS_BLOCK_TABLE = [
+
+      // L
+      // M
+      // Q
+      // H
+
+      // 1
+      [1, 26, 19],
+      [1, 26, 16],
+      [1, 26, 13],
+      [1, 26, 9],
+
+      // 2
+      [1, 44, 34],
+      [1, 44, 28],
+      [1, 44, 22],
+      [1, 44, 16],
+
+      // 3
+      [1, 70, 55],
+      [1, 70, 44],
+      [2, 35, 17],
+      [2, 35, 13],
+
+      // 4
+      [1, 100, 80],
+      [2, 50, 32],
+      [2, 50, 24],
+      [4, 25, 9],
+
+      // 5
+      [1, 134, 108],
+      [2, 67, 43],
+      [2, 33, 15, 2, 34, 16],
+      [2, 33, 11, 2, 34, 12],
+
+      // 6
+      [2, 86, 68],
+      [4, 43, 27],
+      [4, 43, 19],
+      [4, 43, 15],
+
+      // 7
+      [2, 98, 78],
+      [4, 49, 31],
+      [2, 32, 14, 4, 33, 15],
+      [4, 39, 13, 1, 40, 14],
+
+      // 8
+      [2, 121, 97],
+      [2, 60, 38, 2, 61, 39],
+      [4, 40, 18, 2, 41, 19],
+      [4, 40, 14, 2, 41, 15],
+
+      // 9
+      [2, 146, 116],
+      [3, 58, 36, 2, 59, 37],
+      [4, 36, 16, 4, 37, 17],
+      [4, 36, 12, 4, 37, 13],
+
+      // 10
+      [2, 86, 68, 2, 87, 69],
+      [4, 69, 43, 1, 70, 44],
+      [6, 43, 19, 2, 44, 20],
+      [6, 43, 15, 2, 44, 16],
+
+      // 11
+      [4, 101, 81],
+      [1, 80, 50, 4, 81, 51],
+      [4, 50, 22, 4, 51, 23],
+      [3, 36, 12, 8, 37, 13],
+
+      // 12
+      [2, 116, 92, 2, 117, 93],
+      [6, 58, 36, 2, 59, 37],
+      [4, 46, 20, 6, 47, 21],
+      [7, 42, 14, 4, 43, 15],
+
+      // 13
+      [4, 133, 107],
+      [8, 59, 37, 1, 60, 38],
+      [8, 44, 20, 4, 45, 21],
+      [12, 33, 11, 4, 34, 12],
+
+      // 14
+      [3, 145, 115, 1, 146, 116],
+      [4, 64, 40, 5, 65, 41],
+      [11, 36, 16, 5, 37, 17],
+      [11, 36, 12, 5, 37, 13],
+
+      // 15
+      [5, 109, 87, 1, 110, 88],
+      [5, 65, 41, 5, 66, 42],
+      [5, 54, 24, 7, 55, 25],
+      [11, 36, 12, 7, 37, 13],
+
+      // 16
+      [5, 122, 98, 1, 123, 99],
+      [7, 73, 45, 3, 74, 46],
+      [15, 43, 19, 2, 44, 20],
+      [3, 45, 15, 13, 46, 16],
+
+      // 17
+      [1, 135, 107, 5, 136, 108],
+      [10, 74, 46, 1, 75, 47],
+      [1, 50, 22, 15, 51, 23],
+      [2, 42, 14, 17, 43, 15],
+
+      // 18
+      [5, 150, 120, 1, 151, 121],
+      [9, 69, 43, 4, 70, 44],
+      [17, 50, 22, 1, 51, 23],
+      [2, 42, 14, 19, 43, 15],
+
+      // 19
+      [3, 141, 113, 4, 142, 114],
+      [3, 70, 44, 11, 71, 45],
+      [17, 47, 21, 4, 48, 22],
+      [9, 39, 13, 16, 40, 14],
+
+      // 20
+      [3, 135, 107, 5, 136, 108],
+      [3, 67, 41, 13, 68, 42],
+      [15, 54, 24, 5, 55, 25],
+      [15, 43, 15, 10, 44, 16],
+
+      // 21
+      [4, 144, 116, 4, 145, 117],
+      [17, 68, 42],
+      [17, 50, 22, 6, 51, 23],
+      [19, 46, 16, 6, 47, 17],
+
+      // 22
+      [2, 139, 111, 7, 140, 112],
+      [17, 74, 46],
+      [7, 54, 24, 16, 55, 25],
+      [34, 37, 13],
+
+      // 23
+      [4, 151, 121, 5, 152, 122],
+      [4, 75, 47, 14, 76, 48],
+      [11, 54, 24, 14, 55, 25],
+      [16, 45, 15, 14, 46, 16],
+
+      // 24
+      [6, 147, 117, 4, 148, 118],
+      [6, 73, 45, 14, 74, 46],
+      [11, 54, 24, 16, 55, 25],
+      [30, 46, 16, 2, 47, 17],
+
+      // 25
+      [8, 132, 106, 4, 133, 107],
+      [8, 75, 47, 13, 76, 48],
+      [7, 54, 24, 22, 55, 25],
+      [22, 45, 15, 13, 46, 16],
+
+      // 26
+      [10, 142, 114, 2, 143, 115],
+      [19, 74, 46, 4, 75, 47],
+      [28, 50, 22, 6, 51, 23],
+      [33, 46, 16, 4, 47, 17],
+
+      // 27
+      [8, 152, 122, 4, 153, 123],
+      [22, 73, 45, 3, 74, 46],
+      [8, 53, 23, 26, 54, 24],
+      [12, 45, 15, 28, 46, 16],
+
+      // 28
+      [3, 147, 117, 10, 148, 118],
+      [3, 73, 45, 23, 74, 46],
+      [4, 54, 24, 31, 55, 25],
+      [11, 45, 15, 31, 46, 16],
+
+      // 29
+      [7, 146, 116, 7, 147, 117],
+      [21, 73, 45, 7, 74, 46],
+      [1, 53, 23, 37, 54, 24],
+      [19, 45, 15, 26, 46, 16],
+
+      // 30
+      [5, 145, 115, 10, 146, 116],
+      [19, 75, 47, 10, 76, 48],
+      [15, 54, 24, 25, 55, 25],
+      [23, 45, 15, 25, 46, 16],
+
+      // 31
+      [13, 145, 115, 3, 146, 116],
+      [2, 74, 46, 29, 75, 47],
+      [42, 54, 24, 1, 55, 25],
+      [23, 45, 15, 28, 46, 16],
+
+      // 32
+      [17, 145, 115],
+      [10, 74, 46, 23, 75, 47],
+      [10, 54, 24, 35, 55, 25],
+      [19, 45, 15, 35, 46, 16],
+
+      // 33
+      [17, 145, 115, 1, 146, 116],
+      [14, 74, 46, 21, 75, 47],
+      [29, 54, 24, 19, 55, 25],
+      [11, 45, 15, 46, 46, 16],
+
+      // 34
+      [13, 145, 115, 6, 146, 116],
+      [14, 74, 46, 23, 75, 47],
+      [44, 54, 24, 7, 55, 25],
+      [59, 46, 16, 1, 47, 17],
+
+      // 35
+      [12, 151, 121, 7, 152, 122],
+      [12, 75, 47, 26, 76, 48],
+      [39, 54, 24, 14, 55, 25],
+      [22, 45, 15, 41, 46, 16],
+
+      // 36
+      [6, 151, 121, 14, 152, 122],
+      [6, 75, 47, 34, 76, 48],
+      [46, 54, 24, 10, 55, 25],
+      [2, 45, 15, 64, 46, 16],
+
+      // 37
+      [17, 152, 122, 4, 153, 123],
+      [29, 74, 46, 14, 75, 47],
+      [49, 54, 24, 10, 55, 25],
+      [24, 45, 15, 46, 46, 16],
+
+      // 38
+      [4, 152, 122, 18, 153, 123],
+      [13, 74, 46, 32, 75, 47],
+      [48, 54, 24, 14, 55, 25],
+      [42, 45, 15, 32, 46, 16],
+
+      // 39
+      [20, 147, 117, 4, 148, 118],
+      [40, 75, 47, 7, 76, 48],
+      [43, 54, 24, 22, 55, 25],
+      [10, 45, 15, 67, 46, 16],
+
+      // 40
+      [19, 148, 118, 6, 149, 119],
+      [18, 75, 47, 31, 76, 48],
+      [34, 54, 24, 34, 55, 25],
+      [20, 45, 15, 61, 46, 16]
+    ];
+
+    var qrRSBlock = function(totalCount, dataCount) {
+      var _this = {};
+      _this.totalCount = totalCount;
+      _this.dataCount = dataCount;
+      return _this;
+    };
+
+    var _this = {};
+
+    var getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+      switch(errorCorrectionLevel) {
+      case QRErrorCorrectionLevel.L :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+      case QRErrorCorrectionLevel.M :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+      case QRErrorCorrectionLevel.Q :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+      case QRErrorCorrectionLevel.H :
+        return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+      default :
+        return undefined;
+      }
+    };
+
+    _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+      var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+      if (typeof rsBlock == 'undefined') {
+        throw 'bad rs block @ typeNumber:' + typeNumber +
+            '/errorCorrectionLevel:' + errorCorrectionLevel;
+      }
+
+      var length = rsBlock.length / 3;
+
+      var list = [];
+
+      for (var i = 0; i < length; i += 1) {
+
+        var count = rsBlock[i * 3 + 0];
+        var totalCount = rsBlock[i * 3 + 1];
+        var dataCount = rsBlock[i * 3 + 2];
+
+        for (var j = 0; j < count; j += 1) {
+          list.push(qrRSBlock(totalCount, dataCount) );
+        }
+      }
+
+      return list;
+    };
+
+    return _this;
+  }();
+
+  //---------------------------------------------------------------------
+  // qrBitBuffer
+  //---------------------------------------------------------------------
+
+  var qrBitBuffer = function() {
+
+    var _buffer = [];
+    var _length = 0;
+
+    var _this = {};
+
+    _this.getBuffer = function() {
+      return _buffer;
+    };
+
+    _this.getAt = function(index) {
+      var bufIndex = Math.floor(index / 8);
+      return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+    };
+
+    _this.put = function(num, length) {
+      for (var i = 0; i < length; i += 1) {
+        _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+      }
+    };
+
+    _this.getLengthInBits = function() {
+      return _length;
+    };
+
+    _this.putBit = function(bit) {
+
+      var bufIndex = Math.floor(_length / 8);
+      if (_buffer.length <= bufIndex) {
+        _buffer.push(0);
+      }
+
+      if (bit) {
+        _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+      }
+
+      _length += 1;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrNumber
+  //---------------------------------------------------------------------
+
+  var qrNumber = function(data) {
+
+    var _mode = QRMode.MODE_NUMBER;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _data;
+
+      var i = 0;
+
+      while (i + 2 < data.length) {
+        buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+        i += 3;
+      }
+
+      if (i < data.length) {
+        if (data.length - i == 1) {
+          buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+        } else if (data.length - i == 2) {
+          buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+        }
+      }
+    };
+
+    var strToNum = function(s) {
+      var num = 0;
+      for (var i = 0; i < s.length; i += 1) {
+        num = num * 10 + chatToNum(s.charAt(i) );
+      }
+      return num;
+    };
+
+    var chatToNum = function(c) {
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      }
+      throw 'illegal char :' + c;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrAlphaNum
+  //---------------------------------------------------------------------
+
+  var qrAlphaNum = function(data) {
+
+    var _mode = QRMode.MODE_ALPHA_NUM;
+    var _data = data;
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _data.length;
+    };
+
+    _this.write = function(buffer) {
+
+      var s = _data;
+
+      var i = 0;
+
+      while (i + 1 < s.length) {
+        buffer.put(
+          getCode(s.charAt(i) ) * 45 +
+          getCode(s.charAt(i + 1) ), 11);
+        i += 2;
+      }
+
+      if (i < s.length) {
+        buffer.put(getCode(s.charAt(i) ), 6);
+      }
+    };
+
+    var getCode = function(c) {
+
+      if ('0' <= c && c <= '9') {
+        return c.charCodeAt(0) - '0'.charCodeAt(0);
+      } else if ('A' <= c && c <= 'Z') {
+        return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+      } else {
+        switch (c) {
+        case ' ' : return 36;
+        case '$' : return 37;
+        case '%' : return 38;
+        case '*' : return 39;
+        case '+' : return 40;
+        case '-' : return 41;
+        case '.' : return 42;
+        case '/' : return 43;
+        case ':' : return 44;
+        default :
+          throw 'illegal char :' + c;
+        }
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qr8BitByte
+  //---------------------------------------------------------------------
+
+  var qr8BitByte = function(data) {
+
+    var _mode = QRMode.MODE_8BIT_BYTE;
+    var _data = data;
+    var _bytes = qrcode.stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return _bytes.length;
+    };
+
+    _this.write = function(buffer) {
+      for (var i = 0; i < _bytes.length; i += 1) {
+        buffer.put(_bytes[i], 8);
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // qrKanji
+  //---------------------------------------------------------------------
+
+  var qrKanji = function(data) {
+
+    var _mode = QRMode.MODE_KANJI;
+    var _data = data;
+
+    var stringToBytes = qrcode.stringToBytesFuncs['SJIS'];
+    if (!stringToBytes) {
+      throw 'sjis not supported.';
+    }
+    !function(c, code) {
+      // self test for sjis support.
+      var test = stringToBytes(c);
+      if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+        throw 'sjis not supported.';
+      }
+    }('\u53cb', 0x9746);
+
+    var _bytes = stringToBytes(data);
+
+    var _this = {};
+
+    _this.getMode = function() {
+      return _mode;
+    };
+
+    _this.getLength = function(buffer) {
+      return ~~(_bytes.length / 2);
+    };
+
+    _this.write = function(buffer) {
+
+      var data = _bytes;
+
+      var i = 0;
+
+      while (i + 1 < data.length) {
+
+        var c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+        if (0x8140 <= c && c <= 0x9FFC) {
+          c -= 0x8140;
+        } else if (0xE040 <= c && c <= 0xEBBF) {
+          c -= 0xC140;
+        } else {
+          throw 'illegal char at ' + (i + 1) + '/' + c;
+        }
+
+        c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+        buffer.put(c, 13);
+
+        i += 2;
+      }
+
+      if (i < data.length) {
+        throw 'illegal char at ' + (i + 1);
+      }
+    };
+
+    return _this;
+  };
+
+  //=====================================================================
+  // GIF Support etc.
+  //
+
+  //---------------------------------------------------------------------
+  // byteArrayOutputStream
+  //---------------------------------------------------------------------
+
+  var byteArrayOutputStream = function() {
+
+    var _bytes = [];
+
+    var _this = {};
+
+    _this.writeByte = function(b) {
+      _bytes.push(b & 0xff);
+    };
+
+    _this.writeShort = function(i) {
+      _this.writeByte(i);
+      _this.writeByte(i >>> 8);
+    };
+
+    _this.writeBytes = function(b, off, len) {
+      off = off || 0;
+      len = len || b.length;
+      for (var i = 0; i < len; i += 1) {
+        _this.writeByte(b[i + off]);
+      }
+    };
+
+    _this.writeString = function(s) {
+      for (var i = 0; i < s.length; i += 1) {
+        _this.writeByte(s.charCodeAt(i) );
+      }
+    };
+
+    _this.toByteArray = function() {
+      return _bytes;
+    };
+
+    _this.toString = function() {
+      var s = '';
+      s += '[';
+      for (var i = 0; i < _bytes.length; i += 1) {
+        if (i > 0) {
+          s += ',';
+        }
+        s += _bytes[i];
+      }
+      s += ']';
+      return s;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64EncodeOutputStream
+  //---------------------------------------------------------------------
+
+  var base64EncodeOutputStream = function() {
+
+    var _buffer = 0;
+    var _buflen = 0;
+    var _length = 0;
+    var _base64 = '';
+
+    var _this = {};
+
+    var writeEncoded = function(b) {
+      _base64 += String.fromCharCode(encode(b & 0x3f) );
+    };
+
+    var encode = function(n) {
+      if (n < 0) {
+        // error.
+      } else if (n < 26) {
+        return 0x41 + n;
+      } else if (n < 52) {
+        return 0x61 + (n - 26);
+      } else if (n < 62) {
+        return 0x30 + (n - 52);
+      } else if (n == 62) {
+        return 0x2b;
+      } else if (n == 63) {
+        return 0x2f;
+      }
+      throw 'n:' + n;
+    };
+
+    _this.writeByte = function(n) {
+
+      _buffer = (_buffer << 8) | (n & 0xff);
+      _buflen += 8;
+      _length += 1;
+
+      while (_buflen >= 6) {
+        writeEncoded(_buffer >>> (_buflen - 6) );
+        _buflen -= 6;
+      }
+    };
+
+    _this.flush = function() {
+
+      if (_buflen > 0) {
+        writeEncoded(_buffer << (6 - _buflen) );
+        _buffer = 0;
+        _buflen = 0;
+      }
+
+      if (_length % 3 != 0) {
+        // padding
+        var padlen = 3 - _length % 3;
+        for (var i = 0; i < padlen; i += 1) {
+          _base64 += '=';
+        }
+      }
+    };
+
+    _this.toString = function() {
+      return _base64;
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // base64DecodeInputStream
+  //---------------------------------------------------------------------
+
+  var base64DecodeInputStream = function(str) {
+
+    var _str = str;
+    var _pos = 0;
+    var _buffer = 0;
+    var _buflen = 0;
+
+    var _this = {};
+
+    _this.read = function() {
+
+      while (_buflen < 8) {
+
+        if (_pos >= _str.length) {
+          if (_buflen == 0) {
+            return -1;
+          }
+          throw 'unexpected end of file./' + _buflen;
+        }
+
+        var c = _str.charAt(_pos);
+        _pos += 1;
+
+        if (c == '=') {
+          _buflen = 0;
+          return -1;
+        } else if (c.match(/^\s$/) ) {
+          // ignore if whitespace.
+          continue;
+        }
+
+        _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+        _buflen += 6;
+      }
+
+      var n = (_buffer >>> (_buflen - 8) ) & 0xff;
+      _buflen -= 8;
+      return n;
+    };
+
+    var decode = function(c) {
+      if (0x41 <= c && c <= 0x5a) {
+        return c - 0x41;
+      } else if (0x61 <= c && c <= 0x7a) {
+        return c - 0x61 + 26;
+      } else if (0x30 <= c && c <= 0x39) {
+        return c - 0x30 + 52;
+      } else if (c == 0x2b) {
+        return 62;
+      } else if (c == 0x2f) {
+        return 63;
+      } else {
+        throw 'c:' + c;
+      }
+    };
+
+    return _this;
+  };
+
+  //---------------------------------------------------------------------
+  // gifImage (B/W)
+  //---------------------------------------------------------------------
+
+  var gifImage = function(width, height) {
+
+    var _width = width;
+    var _height = height;
+    var _data = new Array(width * height);
+
+    var _this = {};
+
+    _this.setPixel = function(x, y, pixel) {
+      _data[y * _width + x] = pixel;
+    };
+
+    _this.write = function(out) {
+
+      //---------------------------------
+      // GIF Signature
+
+      out.writeString('GIF87a');
+
+      //---------------------------------
+      // Screen Descriptor
+
+      out.writeShort(_width);
+      out.writeShort(_height);
+
+      out.writeByte(0x80); // 2bit
+      out.writeByte(0);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Global Color Map
+
+      // black
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+      out.writeByte(0x00);
+
+      // white
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+      out.writeByte(0xff);
+
+      //---------------------------------
+      // Image Descriptor
+
+      out.writeString(',');
+      out.writeShort(0);
+      out.writeShort(0);
+      out.writeShort(_width);
+      out.writeShort(_height);
+      out.writeByte(0);
+
+      //---------------------------------
+      // Local Color Map
+
+      //---------------------------------
+      // Raster Data
+
+      var lzwMinCodeSize = 2;
+      var raster = getLZWRaster(lzwMinCodeSize);
+
+      out.writeByte(lzwMinCodeSize);
+
+      var offset = 0;
+
+      while (raster.length - offset > 255) {
+        out.writeByte(255);
+        out.writeBytes(raster, offset, 255);
+        offset += 255;
+      }
+
+      out.writeByte(raster.length - offset);
+      out.writeBytes(raster, offset, raster.length - offset);
+      out.writeByte(0x00);
+
+      //---------------------------------
+      // GIF Terminator
+      out.writeString(';');
+    };
+
+    var bitOutputStream = function(out) {
+
+      var _out = out;
+      var _bitLength = 0;
+      var _bitBuffer = 0;
+
+      var _this = {};
+
+      _this.write = function(data, length) {
+
+        if ( (data >>> length) != 0) {
+          throw 'length over';
+        }
+
+        while (_bitLength + length >= 8) {
+          _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+          length -= (8 - _bitLength);
+          data >>>= (8 - _bitLength);
+          _bitBuffer = 0;
+          _bitLength = 0;
+        }
+
+        _bitBuffer = (data << _bitLength) | _bitBuffer;
+        _bitLength = _bitLength + length;
+      };
+
+      _this.flush = function() {
+        if (_bitLength > 0) {
+          _out.writeByte(_bitBuffer);
+        }
+      };
+
+      return _this;
+    };
+
+    var getLZWRaster = function(lzwMinCodeSize) {
+
+      var clearCode = 1 << lzwMinCodeSize;
+      var endCode = (1 << lzwMinCodeSize) + 1;
+      var bitLength = lzwMinCodeSize + 1;
+
+      // Setup LZWTable
+      var table = lzwTable();
+
+      for (var i = 0; i < clearCode; i += 1) {
+        table.add(String.fromCharCode(i) );
+      }
+      table.add(String.fromCharCode(clearCode) );
+      table.add(String.fromCharCode(endCode) );
+
+      var byteOut = byteArrayOutputStream();
+      var bitOut = bitOutputStream(byteOut);
+
+      // clear code
+      bitOut.write(clearCode, bitLength);
+
+      var dataIndex = 0;
+
+      var s = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      while (dataIndex < _data.length) {
+
+        var c = String.fromCharCode(_data[dataIndex]);
+        dataIndex += 1;
+
+        if (table.contains(s + c) ) {
+
+          s = s + c;
+
+        } else {
+
+          bitOut.write(table.indexOf(s), bitLength);
+
+          if (table.size() < 0xfff) {
+
+            if (table.size() == (1 << bitLength) ) {
+              bitLength += 1;
+            }
+
+            table.add(s + c);
+          }
+
+          s = c;
+        }
+      }
+
+      bitOut.write(table.indexOf(s), bitLength);
+
+      // end code
+      bitOut.write(endCode, bitLength);
+
+      bitOut.flush();
+
+      return byteOut.toByteArray();
+    };
+
+    var lzwTable = function() {
+
+      var _map = {};
+      var _size = 0;
+
+      var _this = {};
+
+      _this.add = function(key) {
+        if (_this.contains(key) ) {
+          throw 'dup key:' + key;
+        }
+        _map[key] = _size;
+        _size += 1;
+      };
+
+      _this.size = function() {
+        return _size;
+      };
+
+      _this.indexOf = function(key) {
+        return _map[key];
+      };
+
+      _this.contains = function(key) {
+        return typeof _map[key] != 'undefined';
+      };
+
+      return _this;
+    };
+
+    return _this;
+  };
+
+  var createDataURL = function(width, height, getPixel) {
+    var gif = gifImage(width, height);
+    for (var y = 0; y < height; y += 1) {
+      for (var x = 0; x < width; x += 1) {
+        gif.setPixel(x, y, getPixel(x, y) );
+      }
+    }
+
+    var b = byteArrayOutputStream();
+    gif.write(b);
+
+    var base64 = base64EncodeOutputStream();
+    var bytes = b.toByteArray();
+    for (var i = 0; i < bytes.length; i += 1) {
+      base64.writeByte(bytes[i]);
+    }
+    base64.flush();
+
+    return 'data:image/gif;base64,' + base64;
+  };
+
+  //---------------------------------------------------------------------
+  // returns qrcode function.
+
+  return qrcode;
+}();
+
+// multibyte support
+!function() {
+
+  qrcode.stringToBytesFuncs['UTF-8'] = function(s) {
+    // http://stackoverflow.com/questions/18729405/how-to-convert-utf8-string-to-byte-array
+    function toUTF8Array(str) {
+      var utf8 = [];
+      for (var i=0; i < str.length; i++) {
+        var charcode = str.charCodeAt(i);
+        if (charcode < 0x80) utf8.push(charcode);
+        else if (charcode < 0x800) {
+          utf8.push(0xc0 | (charcode >> 6),
+              0x80 | (charcode & 0x3f));
+        }
+        else if (charcode < 0xd800 || charcode >= 0xe000) {
+          utf8.push(0xe0 | (charcode >> 12),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+        // surrogate pair
+        else {
+          i++;
+          // UTF-16 encodes 0x10000-0x10FFFF by
+          // subtracting 0x10000 and splitting the
+          // 20 bits of 0x0-0xFFFFF into two halves
+          charcode = 0x10000 + (((charcode & 0x3ff)<<10)
+            | (str.charCodeAt(i) & 0x3ff));
+          utf8.push(0xf0 | (charcode >>18),
+              0x80 | ((charcode>>12) & 0x3f),
+              0x80 | ((charcode>>6) & 0x3f),
+              0x80 | (charcode & 0x3f));
+        }
+      }
+      return utf8;
+    }
+    return toUTF8Array(s);
+  };
+
+}();
+
+(function (factory) {
+  if (typeof define === 'function' && define.amd) {
+      define([], factory);
+  } else if (typeof exports === 'object') {
+      module.exports = factory();
+  }
+}(function () {
+    return qrcode;
+}));
+
+</script>
+<script>
+(() => {
+'use strict';
+
+/* ---------- constants ---------- */
+const KEY = 'pilltracker-it:v1';
+const COLORS = {white:'#FFFFFF',yellow:'#F7D046',pink:'#F4A6C0',blue:'#6FA8DC',orange:'#F59E42',red:'#D64545',green:'#7BC47F',brown:'#A0724E'};
+const COLOR_NAMES = {white:'Bianco',yellow:'Giallo',pink:'Rosa',blue:'Blu',orange:'Arancione',red:'Rosso',green:'Verde',brown:'Marrone'};
+const SHAPES = {round:'Compressa tonda',oval:'Compressa ovale',capsule:'Capsula',drops:'Gocce o liquido'};
+const TIMING = {morning:'Mattina',evening:'Sera',food:'A stomaco pieno',empty:'A stomaco vuoto'};
+
+/* ---------- icons ---------- */
+const ic = (p, sw = '2.2', cls = 'ic') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICON = {
+  morning: ic('<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>'),
+  evening: ic('<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>'),
+  food: ic('<circle cx="15" cy="12.5" r="6.5"/><circle cx="15" cy="12.5" r="3"/><path d="M3 3v5a1.5 1.5 0 0 0 3 0V3M4.5 8.5V21"/>'),
+  empty: ic('<circle cx="12" cy="12" r="8"/><path d="M6.3 6.3l11.4 11.4"/>'),
+  check: ic('<path d="M4 12.5l5 5L20 6.5"/>', '3'),
+  bigcheck: ic('<circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.5 3.5L17.5 8.5"/>', '2', 'big-check'),
+  speaker: ic('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
+  clock: ic('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  lock: ic('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>'),
+  back: ic('<path d="M15 5l-7 7 7 7"/>', '2.6'),
+  plus: ic('<path d="M12 5v14M5 12h14"/>', '2.6'),
+  bell: ic('<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>'),
+  warn: ic('<path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/>'),
+  share: ic('<path d="M12 15V3M7.5 7.5L12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'),
+  phone: ic('<path d="M5 3.5h4l1.5 5-2.5 1.5a12 12 0 0 0 6 6l1.5-2.5 5 1.5v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5.5a2 2 0 0 1 2-2z"/>'),
+  cal: ic('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  close: ic('<path d="M6 6l12 12M18 6L6 18"/>', '2.6')
+};
+
+function pillSVG(shape, color, size) {
+  const f = COLORS[color] || '#FFFFFF';
+  let g;
+  switch (shape) {
+    case 'oval':
+      g = `<ellipse cx="32" cy="32" rx="27" ry="17" fill="${f}" stroke-width="3" transform="rotate(-25 32 32)"/><line x1="19" y1="38" x2="45" y2="26" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>`; break;
+    case 'capsule':
+      g = `<g transform="rotate(-35 32 32)"><path d="M32 18H20a14 14 0 0 0 0 28h12z" fill="${f}" stroke-width="3"/><path d="M32 18h12a14 14 0 0 1 0 28H32z" fill="#FFFFFF" stroke-width="3"/></g>`; break;
+    case 'drops':
+      g = `<path d="M32 7C32 7 14 29 14 41a18 18 0 0 0 36 0C50 29 32 7 32 7z" fill="${f}" stroke-width="3" stroke-linejoin="round"/><path d="M23 42a9 9 0 0 0 9 9" fill="none" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>`; break;
+    default:
+      g = `<circle cx="32" cy="32" r="24" fill="${f}" stroke-width="3"/><line x1="15" y1="32" x2="49" y2="32" stroke-width="2.5" stroke-linecap="round" opacity=".5"/>`;
+  }
+  return `<svg class="pill" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false" style="stroke:var(--pill-line)">${g}</svg>`;
+}
+
+/* ---------- utils ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+const dateKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const at = (key, hhmm) => { const d = parseKey(key); const [h, m] = hhmm.split(':').map(Number); d.setHours(h, m, 0, 0); return d; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const timeFmt = new Intl.DateTimeFormat(undefined, {hour: 'numeric', minute: '2-digit'});
+const fmtClock = d => timeFmt.format(d);
+const fmtTime = hhmm => fmtClock(at(dateKey(), hhmm));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean = s => String(s || '').trim().replace(/[.\s]+$/, '');
+function dayPart(hhmm) { const h = +hhmm.slice(0, 2); return h < 12 ? 'Mattina' : h < 17 ? 'Pomeriggio' : h < 21 ? 'Sera' : 'Notte'; }
+function duration(min) { min = Math.max(0, Math.round(min)); if (min < 60) return `${min} min`; const h = Math.floor(min / 60), m = min % 60; return m ? `${h} h ${m} min` : `${h} h`; }
+const PLURAL = {dose: ['dose', 'dosi'], day: ['giorno', 'giorni']};
+const plural = (n, w) => `${n} ${n === 1 ? PLURAL[w][0] : PLURAL[w][1]}`;
+
+/* ---------- state ---------- */
+function defaultSettings() {
+  return {textScale: 1, theme: 'auto', voice: true, rate: 0.85, vibrate: true, sound: true, keepAwake: false,
+    lateMinutes: 45, patientName: '', caregiverName: '', caregiverPhone: '', caregiverEmail: '', pin: '', onboarded: false};
+}
+function sampleMeds() {
+  const since = dateKey();
+  return [
+    {id: uid(), sample: true, name: 'Metformina', dosage: '1 compressa (500 mg)', units: 1, instructions: 'Prendere con un pasto e un bicchiere d’acqua.', shape: 'oval', color: 'white', timing: ['morning', 'food'], times: ['08:00', '20:00'], stock: 24, threshold: 10, critical: false, active: true, since},
+    {id: uid(), sample: true, name: 'Vitamina D', dosage: '20 gocce', units: 1, instructions: 'Diluire in un po’ d’acqua o succo.', shape: 'drops', color: 'yellow', timing: ['morning'], times: ['09:00'], stock: 30, threshold: 5, critical: false, active: true, since},
+    {id: uid(), sample: true, name: 'Warfarin', dosage: '1 compressa (5 mg)', units: 1, instructions: 'Sempre alla stessa ora, la sera.', shape: 'round', color: 'pink', timing: ['evening'], times: ['18:00'], stock: 6, threshold: 7, critical: true, active: true, since}
+  ];
+}
+function load() {
+  let s = null;
+  try { const raw = localStorage.getItem(KEY); if (raw) s = JSON.parse(raw); } catch (e) { s = null; }
+  const st = {meds: Array.isArray(s?.meds) ? s.meds : [], logs: s?.logs && typeof s.logs === 'object' ? s.logs : {}, settings: {...defaultSettings(), ...(s?.settings || {})}};
+  const cutoff = dateKey(addDays(new Date(), -120));
+  for (const id of Object.keys(st.logs)) { const p = id.split('_'); if (p[p.length - 2] < cutoff) delete st.logs[id]; }
+  return st;
+}
+let state = load();
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+  catch (e) { showToast('Impossibile salvare le modifiche su questo dispositivo. Esporta una copia di sicurezza dalle impostazioni di chi assiste.'); return false; }
+}
+
+let view = 'patient', cgTab = 'today', editing = null, focusId = null, sig = '', lastDay = dateKey();
+
+/* ---------- doses ---------- */
+const logId = (medId, key, time) => `${medId}_${key}_${time}`;
+function dosesFor(key) {
+  const out = [];
+  for (const med of state.meds) {
+    if (med.active === false) continue;
+    if (med.since && key < med.since) continue;
+    for (const time of med.times || []) {
+      const id = logId(med.id, key, time);
+      out.push({id, med, time, key, log: state.logs[id] || null});
+    }
+  }
+  return out.sort((a, b) => a.time.localeCompare(b.time) || a.med.name.localeCompare(b.med.name));
+}
+function findDose(id) {
+  const p = id.split('_'); const time = p.pop(), key = p.pop(), medId = p.join('_');
+  const med = state.meds.find(m => m.id === medId);
+  return med ? {id, med, time, key, log: state.logs[id] || null} : null;
+}
+function statusOf(d, now = new Date()) {
+  if (d.log?.status === 'TAKEN') return 'taken';
+  const today = dateKey(now);
+  if (d.key < today) return 'missed';
+  if (d.key > today) return 'upcoming';
+  const sched = at(d.key, d.time);
+  if (d.log?.snoozeUntil && new Date(d.log.snoozeUntil) > now) return 'snoozed';
+  if (now < sched) return 'upcoming';
+  if (now - sched >= state.settings.lateMinutes * 60000) return 'late';
+  return 'due';
+}
+function effectiveTime(d) {
+  const s = at(d.key, d.time); const z = d.log?.snoozeUntil ? new Date(d.log.snoozeUntil) : null;
+  return z && z > s ? z : s;
+}
+function nextDose() {
+  const now = new Date();
+  const list = dosesFor(dateKey(now)).filter(d => statusOf(d, now) !== 'taken');
+  if (focusId) { const f = list.find(d => d.id === focusId); if (f) return f; focusId = null; }
+  return list.sort((a, b) => effectiveTime(a) - effectiveTime(b))[0] || null;
+}
+
+/* ---------- feedback: voice, haptics, sound, screen reader ---------- */
+const fx = {
+  voices: [], ctx: null, primed: false,
+  init() {
+    if (!('speechSynthesis' in window)) return;
+    const l = () => { fx.voices = speechSynthesis.getVoices(); };
+    l(); speechSynthesis.addEventListener?.('voiceschanged', l);
+  },
+  unlock() {
+    try { fx.ctx ??= new (window.AudioContext || window.webkitAudioContext)(); if (fx.ctx.state === 'suspended') fx.ctx.resume(); } catch (e) {}
+    if ('speechSynthesis' in window && !fx.primed) { fx.primed = true; try { const u = new SpeechSynthesisUtterance(''); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
+  },
+  lang() { return 'it-IT'; },
+  voice(lang) {
+    const v = fx.voices, base = lang.slice(0, 2).toLowerCase();
+    return v.find(x => x.lang === lang && x.localService) || v.find(x => x.lang === lang) ||
+      v.find(x => x.lang?.toLowerCase().startsWith(base) && x.localService) || v.find(x => x.lang?.toLowerCase().startsWith(base)) || null;
+  },
+  speak(text) {
+    if (!state.settings.voice || !('speechSynthesis' in window) || !text) return false;
+    try {
+      speechSynthesis.cancel();
+      const lang = fx.lang(), voice = fx.voice(lang);
+      for (const part of (text.match(/[^.!?]+[.!?]*/g) || [text])) {
+        const t = part.trim(); if (!t) continue;
+        const u = new SpeechSynthesisUtterance(t);
+        u.lang = lang; u.rate = state.settings.rate; if (voice) u.voice = voice;
+        speechSynthesis.speak(u);
+      }
+      return true;
+    } catch (e) { return false; }
+  },
+  stop() { try { 'speechSynthesis' in window && speechSynthesis.cancel(); } catch (e) {} },
+  vibrate(p) {
+    if (!state.settings.vibrate || typeof navigator.vibrate !== 'function') return false;
+    try { return navigator.vibrate(p); } catch (e) { return false; }
+  },
+  chime(kind = 'confirm') {
+    if (!state.settings.sound) return;
+    try {
+      fx.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+      const notes = kind === 'alarm' ? [880, 660, 880, 660] : kind === 'warn' ? [440, 330] : [660, 880];
+      notes.forEach((freq, i) => {
+        const o = fx.ctx.createOscillator(), g = fx.ctx.createGain(), t = fx.ctx.currentTime + i * 0.18;
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(kind === 'alarm' ? 0.45 : 0.3, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        o.connect(g).connect(fx.ctx.destination); o.start(t); o.stop(t + 0.18);
+      });
+    } catch (e) {}
+  }
+};
+function announce(msg) { const r = $('#live'); r.textContent = ''; requestAnimationFrame(() => { r.textContent = msg; }); }
+const reminderText = m => [`È ora di prendere ${clean(m.name)}`, clean(m.dosage), clean(m.instructions)].filter(Boolean).join('. ') + '.';
+
+/* ---------- actions on doses ---------- */
+function markTaken(id) {
+  const d = findDose(id); if (!d) return;
+  if (d.log?.status === 'TAKEN') {
+    const msg = `${clean(d.med.name)} è già registrato per questo orario. Non devi prenderlo di nuovo.`;
+    if (!fx.vibrate([300, 100, 300])) fx.chime('warn');
+    announce(msg); fx.speak(msg); return;
+  }
+  const prevLog = d.log ? {...d.log} : null, prevStock = d.med.stock;
+  state.logs[id] = {status: 'TAKEN', takenAt: new Date().toISOString(), snoozeUntil: null};
+  d.med.stock = Math.max(0, (+d.med.stock || 0) - (+d.med.units || 1));
+  if (!save()) return;
+  focusId = null;
+  closeAlarmIf(id);
+  if (!fx.vibrate([100, 50, 100])) fx.chime('confirm');
+  const msg = `Fatto. ${clean(d.med.name)} registrato alle ${fmtClock(new Date())}.`;
+  announce(msg); fx.speak(msg);
+  render();
+  showToast(`${d.med.name} registrato come preso.`, {label: 'Annulla', fn: () => {
+    if (prevLog) state.logs[id] = prevLog; else delete state.logs[id];
+    d.med.stock = prevStock; save(); render();
+    announce(`Annullato. ${clean(d.med.name)} non è segnato come preso.`);
+  }});
+  if (d.med.stock <= (+d.med.threshold || 0)) {
+    setTimeout(() => { const w = `Restano solo ${d.med.stock} di ${clean(d.med.name)}. Chiedi presto un riordino.`; announce(w); fx.speak(w); }, 3200);
+  }
+}
+function snooze(id, min = 15) {
+  const d = findDose(id); if (!d || d.log?.status === 'TAKEN') return;
+  const until = new Date(Date.now() + min * 60000);
+  state.logs[id] = {...(d.log || {}), status: 'SNOOZED', snoozeUntil: until.toISOString()};
+  save(); focusId = null; closeAlarmIf(id);
+  if (!fx.vibrate([60])) fx.chime('confirm');
+  const msg = `Va bene. Ti ricorderò di ${clean(d.med.name)} alle ${fmtClock(until)}.`;
+  announce(msg); fx.speak(msg); render();
+}
+
+/* ---------- toast ---------- */
+let toastTimer = null;
+function showToast(msg, action) {
+  const t = $('#toast'); clearTimeout(toastTimer);
+  t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button class="btn btn-small" type="button" id="toast-btn">${esc(action.label)}</button>` : ''}`;
+  t.hidden = false;
+  if (action) $('#toast-btn').onclick = () => { t.hidden = true; action.fn(); };
+  toastTimer = setTimeout(() => { t.hidden = true; }, action ? 10000 : 5000);
+}
+
+/* ---------- settings ---------- */
+function applySettings() {
+  const s = state.settings, root = document.documentElement;
+  root.style.setProperty('--scale', s.textScale);
+  if (s.theme === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', s.theme);
+}
+let wakeLock = null;
+async function keepAwake() {
+  if (!state.settings.keepAwake || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+
+/* ---------- rendering ---------- */
+function chipInfo(d) {
+  const st = statusOf(d), now = Date.now(), s = at(d.key, d.time).getTime();
+  switch (st) {
+    case 'upcoming': return {cls: '', text: `Tra ${duration(Math.ceil((s - now) / 60000))}`};
+    case 'due': return {cls: 'chip-due', text: 'Da prendere ora'};
+    case 'late': return {cls: 'chip-late', text: `${duration((now - s) / 60000)} di ritardo`};
+    case 'snoozed': return {cls: '', text: `Promemoria alle ${fmtClock(new Date(d.log.snoozeUntil))}`};
+    case 'taken': return {cls: '', text: 'Presa'};
+    default: return {cls: 'chip-late', text: 'Saltata'};
+  }
+}
+function chipHTML(d) { const c = chipInfo(d); return `<span class="chip ${c.cls}" data-chip="${d.id}">${esc(c.text)}</span>`; }
+function rowStatus(d, st) {
+  switch (st) {
+    case 'taken': return `${ICON.check}<span>Presa${d.log?.takenAt ? ' alle ' + fmtClock(new Date(d.log.takenAt)) : ''}</span>`;
+    case 'late': return `${ICON.warn}<span>In ritardo</span>`;
+    case 'missed': return `${ICON.warn}<span>Saltata</span>`;
+    case 'due': return `${ICON.bell}<span>Da prendere ora</span>`;
+    case 'snoozed': return `${ICON.clock}<span>Promemoria alle ${fmtClock(new Date(d.log.snoozeUntil))}</span>`;
+    default: return '<span>Più tardi oggi</span>';
+  }
+}
+function tagsHTML(med) {
+  return med.timing?.length ? `<ul class="tags" aria-label="When and how">${med.timing.filter(t => TIMING[t]).map(t => `<li class="tag">${ICON[t]}${TIMING[t]}</li>`).join('')}</ul>` : '';
+}
+function greeting(now) { const h = now.getHours(); return h < 12 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera'; }
+
+function patientHTML() {
+  const now = new Date(), key = dateKey(now), s = state.settings, doses = dosesFor(key), nd = nextDose();
+  const name = s.patientName ? `, ${esc(s.patientName)}` : '';
+  let card;
+  if (!state.meds.filter(m => m.active !== false).length) {
+    card = `<section class="dose-card"><div class="dose-body" style="grid-template-columns:1fr"><h2 class="med-name" style="font-size:1.7rem">Nessun farmaco</h2><p class="med-dose">Chi assiste può aggiungere farmaci e orari.</p></div>
+      <div class="dose-actions"><button class="btn btn-go" data-action="open-caregiver">${ICON.plus} Aggiungi farmaci</button></div></section>`;
+  } else if (!nd) {
+    const tomorrow = dosesFor(dateKey(addDays(now, 1)))[0];
+    card = `<section class="dose-card"><div class="dose-body done-body">${ICON.bigcheck}<div><h2 class="med-name" id="dose-title" tabindex="-1">Tutto fatto per oggi</h2>
+      ${tomorrow ? `<p class="med-dose">Prossimo: ${esc(tomorrow.med.name)} domani alle ${fmtTime(tomorrow.time)}</p>` : ''}</div></div></section>`;
+  } else {
+    const med = nd.med;
+    card = `<section class="dose-card" aria-labelledby="dose-title">
+      <div class="dose-lid"><div><span class="daypart">${dayPart(nd.time)}</span><span class="dose-time">${fmtTime(nd.time)}</span></div>${chipHTML(nd)}</div>
+      <div class="dose-body">
+        <div>${pillSVG(med.shape, med.color, 96)}</div>
+        <div><h2 class="med-name" id="dose-title" tabindex="-1">${esc(med.name)}</h2><p class="med-dose">${esc(med.dosage)}</p></div>
+        ${tagsHTML(med)}
+        ${med.instructions ? `<p class="instr">${esc(med.instructions)}</p>` : ''}
+      </div>
+      <div class="dose-actions">
+        <button class="btn btn-go btn-huge" data-action="take" data-id="${nd.id}">${ICON.check} I took it</button>
+        <div class="row2">
+          <button class="btn" data-action="listen" data-id="${nd.id}">${ICON.speaker} Listen</button>
+          <button class="btn" data-action="snooze" data-id="${nd.id}">${ICON.clock} Remind me later</button>
+        </div>
+      </div></section>`;
+  }
+  const list = doses.length ? `<h2 class="section-title">Oggi</h2><ol class="day-list">${doses.map(d => {
+    const st = statusOf(d, now);
+    const label = `${fmtTime(d.time)}, ${d.med.name}, ${d.med.dosage}, ${({upcoming: 'più tardi oggi', due: 'da prendere ora', snoozed: 'promemoria impostato', taken: 'presa', late: 'in ritardo', missed: 'saltata'})[st] || st}`;
+    return `<li><button class="day-row st-${st} ${nd && nd.id === d.id ? 'is-focus' : ''}" data-action="focus" data-id="${d.id}" aria-label="${esc(label)}">
+      <span class="row-time">${fmtTime(d.time)}</span>${pillSVG(d.med.shape, d.med.color, 40)}
+      <span class="row-main"><span class="row-name">${esc(d.med.name)}</span><span class="row-dose">${esc(d.med.dosage)}</span></span>
+      <span class="row-status">${rowStatus(d, st)}</span></button></li>`;
+  }).join('')}</ol>` : '';
+  const who = s.caregiverName || 'chi assiste';
+  const send = (s.caregiverPhone || s.caregiverEmail) ? `<button class="btn btn-block" data-action="share-day">${ICON.share} Invia la lista di oggi a ${esc(who)}</button>` : '';
+  return `<div class="wrap">
+    <header class="top"><div><h1 class="greet">${greeting(now)}${name}</h1><p class="today-date">${now.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'})}</p></div>
+      <button class="btn btn-small" data-action="open-caregiver">${ICON.lock} Chi assiste</button></header>
+    <main>${card}${list}${send}</main></div>`;
+}
+
+function dayStats(key, now = new Date()) {
+  const ds = dosesFor(key).filter(d => at(d.key, d.time) <= now);
+  const taken = ds.filter(d => d.log?.status === 'TAKEN').length;
+  return {due: ds.length, taken, missed: ds.filter(d => d.log?.status !== 'TAKEN'), pct: ds.length ? Math.round(taken / ds.length * 100) : null};
+}
+
+function caregiverHTML() {
+  const tabs = [['today', 'Oggi'], ['meds', 'Farmaci'], ['settings', 'Impostazioni']];
+  const body = cgTab === 'today' ? cgToday() : cgTab === 'meds' ? (editing ? medFormHTML(editing === 'new' ? null : state.meds.find(m => m.id === editing)) : cgMeds()) : cgSettings();
+  return `<div class="wrap">
+    <header class="cg-head"><h1 id="cg-title" tabindex="-1">Chi assiste</h1><button class="btn btn-small" data-action="back-patient">${ICON.back} Vista paziente</button></header>
+    <div class="tabs" role="tablist" aria-label="Sezioni per chi assiste">${tabs.map(([k, v]) => `<button class="btn tab" role="tab" aria-selected="${cgTab === k}" data-action="tab" data-tab="${k}">${v}</button>`).join('')}</div>
+    <main class="panel" role="tabpanel" aria-labelledby="cg-title">${body}</main></div>`;
+}
+
+function cgToday() {
+  const now = new Date(), key = dateKey(now), doses = dosesFor(key), stats = dayStats(key, now);
+  const late = doses.filter(d => statusOf(d, now) === 'late');
+  const banner = late.length ? `<div class="banner banner-stop" role="alert"><strong>${plural(late.length, 'dose')} in ritardo</strong><ul>${late.map(d => `<li>${esc(d.med.name)} at ${fmtTime(d.time)}${d.med.critical ? ' (critico)' : ''}</li>`).join('')}</ul></div>` : '';
+  const summary = stats.due ? `<p class="stat">${stats.pct}% presi finora oggi</p><p>${stats.taken} su ${plural(stats.due, 'dose')} previste finora</p>` : `<p class="stat">Nessuna dose prevista per ora</p>`;
+  const track = doses.length ? `<div class="track" aria-hidden="true">${doses.map(d => `<span class="seg ${statusOf(d, now)}"></span>`).join('')}</div>
+    <div class="legend" aria-hidden="true"><span><i style="background:var(--go);border-color:var(--go)"></i>Presa</span><span><i style="background:var(--warn);border-color:var(--ink)"></i>Da prendere</span><span><i style="background:var(--stop);border-color:var(--stop)"></i>In ritardo</span><span><i></i>Più tardi</span></div>` : '';
+  const rows = doses.map(d => {
+    const st = statusOf(d, now);
+    return `<li class="cg-row st-${st}"><span class="row-time">${fmtTime(d.time)}</span>${pillSVG(d.med.shape, d.med.color, 40)}
+      <span class="row-main"><span class="row-name">${esc(d.med.name)}</span><span class="row-dose">${esc(d.med.dosage)}</span></span>
+      <span class="row-status">${rowStatus(d, st)}</span>
+      ${st !== 'taken' ? `<button class="btn btn-small" data-action="take" data-id="${d.id}" aria-label="Segna come presa la dose di ${esc(d.med.name)} delle ${fmtTime(d.time)}">Segna come presa</button>` : ''}</li>`;
+  }).join('');
+  const days = [...Array(7)].map((_, i) => addDays(now, i - 6));
+  const week = days.map(d => ({d, ...dayStats(dateKey(d), now)}));
+  const weekLabel = week.map(w => `${w.d.toLocaleDateString('it-IT', {weekday: 'long'})}: ${w.pct == null ? 'nessuna dose' : w.pct + ' percento'}`).join(', ');
+  const weekHTML = `<div class="week" role="img" aria-label="${esc(weekLabel)}">${week.map(w => `<div class="wk"><span class="wk-pct">${w.pct == null ? '–' : w.pct + '%'}</span><span class="wk-track"><span class="wk-bar ${w.pct == null ? '' : w.pct >= 90 ? '' : w.pct >= 60 ? 'mid' : 'low'}" style="height:${w.pct || 0}%"></span></span><span class="wk-day">${w.d.toLocaleDateString('it-IT', {weekday: 'short'})}</span></div>`).join('')}</div>`;
+  const meds = state.meds.filter(m => m.active !== false);
+  const stock = meds.map(m => {
+    const perDay = (m.times?.length || 0) * (+m.units || 1);
+    const daysLeft = perDay ? Math.floor((+m.stock || 0) / perDay) : null;
+    const low = (+m.stock || 0) <= (+m.threshold || 0);
+    return `<div class="stock-row">${pillSVG(m.shape, m.color, 40)}<div><strong>${esc(m.name)}</strong><br><span class="med-meta">${m.stock} rimaste${daysLeft != null ? `, circa ${plural(daysLeft, 'day')}` : ''}</span></div>
+      <span class="badge ${low ? 'badge-stop' : 'badge-ok'}">${low ? 'Da riordinare' : 'OK'}</span></div>`;
+  }).join('');
+  return `${banner}
+    <section><h2>Oggi</h2>${summary}${track}${doses.length ? `<ul class="cg-list">${rows}</ul>` : '<p>Nessun farmaco previsto oggi.</p>'}</section>
+    <section><h2>Ultimi 7 giorni</h2>${weekHTML}</section>
+    <section><h2>Scorte</h2>${stock || '<p>Nessun farmaco.</p>'}</section>
+    <section class="actions"><button class="btn" data-action="share-day">${ICON.share} Condividi il riepilogo di oggi</button><button class="btn" data-action="print">Stampa un report di 7 giorni</button></section>`;
+}
+
+function cgMeds() {
+  const samples = state.meds.some(m => m.sample);
+  const list = state.meds.map(m => `<article class="med-card ${m.active === false ? 'paused' : ''}">
+      ${pillSVG(m.shape, m.color, 48)}
+      <div><h3>${esc(m.name)}${m.critical ? ' <span class="badge badge-stop">Critico</span>' : ''}${m.active === false ? ' <span class="badge badge-ok">In pausa</span>' : ''}</h3>
+        <p>${esc(m.dosage)}</p><p class="med-meta">${(m.times || []).map(fmtTime).join(', ')}. ${m.stock} in scorta.</p></div>
+      <div class="actions">
+        <button class="btn btn-small" data-action="edit-med" data-id="${m.id}">Modifica</button>
+        <button class="btn btn-small" data-action="toggle-med" data-id="${m.id}">${m.active === false ? 'Riprendi' : 'Sospendi'}</button>
+        <button class="btn btn-small" data-action="delete-med" data-id="${m.id}">Elimina</button>
+      </div></article>`).join('');
+  return `${samples ? `<div class="note">Questi sono farmaci di esempio, per mostrare come funziona PillTracker. <button class="btn btn-small" data-action="delete-samples" style="margin-top:.6rem">Elimina gli esempi</button></div>` : ''}
+    <button class="btn btn-go btn-block" data-action="add-med">${ICON.plus} Aggiungi un farmaco</button>
+    <section style="display:grid;gap:1rem">${list || '<p>Nessun farmaco.</p>'}</section>`;
+}
+
+function timeRow(t, i) {
+  return `<div class="time-row"><input type="time" name="times" value="${esc(t)}" aria-label="Orario ${i + 1}" required>
+    <button type="button" class="btn" data-action="remove-time" aria-label="Rimuovi orario ${i + 1}">${ICON.close}</button></div>`;
+}
+function medFormHTML(med) {
+  const m = med || {name: '', dosage: '', units: 1, instructions: '', shape: 'round', color: 'white', timing: [], times: ['08:00'], stock: 30, threshold: 7, critical: false};
+  return `<form id="med-form" class="card-form" novalidate>
+    <h2 id="form-title" tabindex="-1">${med ? 'Modifica farmaco' : 'Aggiungi un farmaco'}</h2>
+    <div class="field"><label for="f-name">Nome del farmaco</label><input id="f-name" name="name" type="text" value="${esc(m.name)}" autocomplete="off" required></div>
+    <div class="field"><label for="f-dosage">Dose</label><p class="hint" id="h-dosage">Cosa prendere ogni volta, per esempio "1 compressa" o "20 gocce".</p><input id="f-dosage" name="dosage" type="text" aria-describedby="h-dosage" value="${esc(m.dosage)}"></div>
+    <div class="field"><label for="f-instr">Istruzioni</label><textarea id="f-instr" name="instructions" rows="2">${esc(m.instructions)}</textarea></div>
+    <fieldset class="field"><legend>Orari</legend><div id="times">${m.times.map(timeRow).join('')}</div>
+      <button type="button" class="btn" data-action="add-time">${ICON.plus} Aggiungi un orario</button></fieldset>
+    <fieldset class="field"><legend>Quando e come</legend><div class="choice-grid">${Object.entries(TIMING).map(([k, v]) => `<label class="choice"><input type="checkbox" name="timing" value="${k}" ${m.timing?.includes(k) ? 'checked' : ''}>${ICON[k]}${v}</label>`).join('')}</div></fieldset>
+    <fieldset class="field"><legend>Forma</legend><div class="choice-grid">${Object.entries(SHAPES).map(([k, v]) => `<label class="choice"><input type="radio" name="shape" value="${k}" ${m.shape === k ? 'checked' : ''}>${pillSVG(k, 'white', 32)}${v}</label>`).join('')}</div></fieldset>
+    <fieldset class="field"><legend>Colore</legend><div class="choice-grid">${Object.entries(COLOR_NAMES).map(([k, v]) => `<label class="choice"><input type="radio" name="color" value="${k}" ${m.color === k ? 'checked' : ''}><span class="swatch" style="background:${COLORS[k]}"></span>${v}</label>`).join('')}</div></fieldset>
+    <div class="two">
+      <div class="field"><label for="f-stock">Unità in scorta</label><input id="f-stock" name="stock" type="number" inputmode="decimal" min="0" step="any" value="${esc(m.stock)}"></div>
+      <div class="field"><label for="f-units">Unità per dose</label><input id="f-units" name="units" type="number" inputmode="decimal" min="0" step="any" value="${esc(m.units)}"></div>
+    </div>
+    <div class="field"><label for="f-thr">Avvisa quando la scorta scende a</label><input id="f-thr" name="threshold" type="number" inputmode="decimal" min="0" step="any" value="${esc(m.threshold)}"></div>
+    <label class="check"><input type="checkbox" name="critical" ${m.critical ? 'checked' : ''}><span><strong>Farmaco critico</strong><br><span class="hint">Se questa dose è in ritardo, il promemoria propone di contattare chi assiste.</span></span></label>
+    <p class="form-error" id="form-error" role="alert"></p>
+    <div class="row2"><button type="submit" class="btn btn-go">Salva farmaco</button><button type="button" class="btn" data-action="cancel-edit">Annulla</button></div>
+  </form>`;
+}
+
+function cgSettings() {
+  const s = state.settings;
+  const radio = (name, value, label, extra = '') => `<label class="choice"><input type="radio" name="${name}" value="${value}" data-setting="${name}" ${String(s[name]) === String(value) ? 'checked' : ''}>${extra}${label}</label>`;
+  const check = (name, label, hint = '') => `<label class="check"><input type="checkbox" data-setting="${name}" ${s[name] ? 'checked' : ''}><span><strong>${label}</strong>${hint ? `<br><span class="hint">${hint}</span>` : ''}</span></label>`;
+  const text = (name, label, type = 'text', extra = '') => `<div class="field"><label for="s-${name}">${label}</label><input id="s-${name}" type="${type}" data-setting="${name}" value="${esc(s[name])}" ${extra}></div>`;
+  const canVibrate = typeof navigator.vibrate === 'function';
+  const notif = 'Notification' in window ? Notification.permission : 'unsupported';
+  return `
+  <section class="settings-group" style="border-top:0;padding-top:0"><h2>Schermo</h2>
+    <fieldset class="field"><legend>Dimensione testo</legend><div class="choice-grid">
+      ${radio('textScale', 1, 'Standard', '<span class="size-sample" style="font-size:1rem">Aa</span>')}
+      ${radio('textScale', 1.2, 'Grande', '<span class="size-sample" style="font-size:1.2rem">Aa</span>')}
+      ${radio('textScale', 1.4, 'Extra grande', '<span class="size-sample" style="font-size:1.4rem">Aa</span>')}</div></fieldset>
+    <fieldset class="field"><legend>Colori</legend><div class="choice-grid">${radio('theme', 'auto', 'Come il dispositivo')}${radio('theme', 'light', 'Chiaro')}${radio('theme', 'dark', 'Scuro')}</div></fieldset>
+    ${check('keepAwake', 'Tieni lo schermo acceso', 'Utile su un tablet appoggiato su un supporto.')}
+  </section>
+  <section class="settings-group"><h2>Suoni e vibrazione</h2>
+    ${check('voice', 'Leggi i promemoria ad alta voce')}
+    <fieldset class="field"><legend>Velocità di lettura</legend><div class="choice-grid">${radio('rate', 0.7, 'Lenta')}${radio('rate', 0.85, 'Rilassata')}${radio('rate', 1, 'Normale')}</div></fieldset>
+    <button class="btn" data-action="test-voice">${ICON.speaker} Prova la voce</button>
+    ${check('vibrate', 'Vibra alla conferma', canVibrate ? '' : 'Questo dispositivo non può vibrare. Viene riprodotto un breve suono.')}
+    ${check('sound', 'Riproduci suoni')}
+  </section>
+  <section class="settings-group"><h2>Persone</h2>
+    ${text('patientName', 'Nome del paziente')}
+    ${text('caregiverName', 'Nome di chi assiste')}
+    ${text('caregiverPhone', 'Telefono di chi assiste', 'tel', 'autocomplete="tel"')}
+    ${text('caregiverEmail', 'Email di chi assiste', 'email', 'autocomplete="email"')}
+    <div class="field"><label for="s-late">Considera una dose in ritardo dopo</label><select id="s-late" data-setting="lateMinutes">${[15, 30, 45, 60, 90, 120].map(v => `<option value="${v}" ${+s.lateMinutes === v ? 'selected' : ''}>${v} minuti</option>`).join('')}</select></div>
+    <div class="field"><label for="s-pin">PIN di chi assiste</label><p class="hint" id="h-pin">Da 4 a 8 cifre. Lascia vuoto per aprire quest'area senza PIN.</p><input id="s-pin" type="password" inputmode="numeric" maxlength="8" data-setting="pin" value="${esc(s.pin)}" aria-describedby="h-pin" autocomplete="new-password"></div>
+  </section>
+  <section class="settings-group"><h2>Condividi il piano</h2>
+    <p>Copia farmaci e orari sul tablet o sul telefono del paziente. Mostra un nuovo codice dopo ogni modifica.</p>
+    <button class="btn" data-action="share-plan">Mostra il codice del piano</button>
+  </section>
+  <section class="settings-group"><h2>Promemoria a app chiusa</h2>
+    <p>Le pagine web non possono suonare in modo affidabile quando sono chiuse. Aggiungi gli orari dei farmaci al calendario del telefono, così suona ogni giorno anche senza PillTracker aperto.</p>
+    <button class="btn" data-action="ics">${ICON.cal} Aggiungi promemoria al calendario</button>
+    <p class="hint">Dopo aver cambiato gli orari, aggiungi di nuovo il file del calendario ed elimina i vecchi eventi.</p>
+    ${notif === 'unsupported' ? '' : notif === 'granted' ? '<p>Le notifiche sono attive mentre PillTracker è aperto in background.</p>' : `<button class="btn" data-action="notif">${ICON.bell} Consenti notifiche</button>`}
+  </section>
+  <section class="settings-group"><h2>Dati su questo dispositivo</h2>
+    <p>Farmaci e storico sono salvati solo in questo browser. Fai una copia di sicurezza prima di cambiare telefono o cancellare il browser.</p>
+    <div class="actions"><button class="btn" data-action="backup">Salva copia di sicurezza</button><button class="btn" data-action="restore">Ripristina copia</button><button class="btn" data-action="print">Stampa report di 7 giorni</button></div>
+    <button class="btn btn-stop" data-action="clear-all">Elimina tutti i dati</button>
+  </section>`;
+}
+
+function render() {
+  applySettings();
+  const a = document.activeElement;
+  let sel = null;
+  if (a && a !== document.body && a.closest('#app')) {
+    if (a.dataset.action) sel = `[data-action="${a.dataset.action}"]${a.dataset.id ? `[data-id="${CSS.escape(a.dataset.id)}"]` : ''}${a.dataset.tab ? `[data-tab="${a.dataset.tab}"]` : ''}`;
+    else if (a.id) sel = '#' + CSS.escape(a.id);
+  }
+  $('#app').innerHTML = view === 'patient' ? patientHTML() : caregiverHTML();
+  if (sel) $(sel)?.focus({preventScroll: true});
+  sig = signature();
+}
+function signature() {
+  const now = new Date(), key = dateKey(now);
+  return key + '|' + dosesFor(key).map(d => statusOf(d, now)[0]).join('') + '|' + (nextDose()?.id || '');
+}
+
+/* ---------- reminders ---------- */
+const alerted = new Set(), alarmQ = [];
+let alarmId = null;
+const dlgAlarm = $('#dlg-alarm');
+const baseTitle = document.title;
+
+function tick() {
+  const now = new Date(), key = dateKey(now);
+  if (key !== lastDay) { lastDay = key; alerted.clear(); }
+  for (const d of dosesFor(key)) {
+    const st = statusOf(d, now);
+    if (st === 'taken' || st === 'upcoming' || st === 'snoozed') continue;
+    const eff = effectiveTime(d);
+    if (now - eff > 3 * 3600000) continue;
+    const k = d.id + '@' + eff.getTime();
+    if (!alerted.has(k)) { alerted.add(k); queueAlarm(d.id); }
+    if (st === 'late' && d.med.critical && !alerted.has(d.id + '@late')) { alerted.add(d.id + '@late'); queueAlarm(d.id, true); }
+  }
+  document.querySelectorAll('[data-chip]').forEach(el => { const d = findDose(el.dataset.chip); if (d) { const c = chipInfo(d); el.textContent = c.text; el.className = 'chip ' + c.cls; } });
+  const anyDialog = document.querySelector('dialog[open]');
+  const editingForm = view === 'caregiver' && cgTab !== 'today';
+  if (!anyDialog && !editingForm && signature() !== sig) render();
+}
+function queueAlarm(id, force = false) {
+  if (alarmId === id && !force) return;
+  if (!alarmQ.includes(id)) alarmQ.push(id);
+  if (!alarmId) nextAlarm();
+}
+function nextAlarm() {
+  alarmId = null;
+  while (alarmQ.length) {
+    const d = findDose(alarmQ.shift());
+    if (d && d.log?.status !== 'TAKEN' && statusOf(d) !== 'snoozed') { openAlarm(d); return; }
+  }
+}
+function contactHTML(d) {
+  const s = state.settings, who = esc(s.caregiverName || 'chi assiste');
+  const me = s.patientName ? `Sono ${s.patientName}. ` : '';
+  const msg = `${me}Non ho preso ${clean(d.med.name)} (${clean(d.med.dosage)}) prevista alle ${fmtTime(d.time)}.`;
+  const links = [];
+  if (s.caregiverPhone) {
+    const ph = s.caregiverPhone.replace(/[^\d+]/g, '');
+    links.push(`<a class="btn" href="sms:${ph}?&body=${encodeURIComponent(msg)}">${ICON.share} Scrivi a ${who}</a>`);
+    links.push(`<a class="btn" href="tel:${ph}">${ICON.phone} Chiama ${who}</a>`);
+  }
+  if (s.caregiverEmail) links.push(`<a class="btn" href="mailto:${encodeURIComponent(s.caregiverEmail)}?subject=${encodeURIComponent('Farmaco saltato: ' + d.med.name)}&body=${encodeURIComponent(msg)}">Scrivi email a ${who}</a>`);
+  return `<div class="contact"><p><strong>Questo è un farmaco importante.</strong> Puoi avvisare ${who}.</p>${links.join('')}</div>`;
+}
+function openAlarm(d) {
+  alarmId = d.id;
+  const st = statusOf(d), med = d.med, s = state.settings, late = st === 'late';
+  const contact = late && med.critical && (s.caregiverPhone || s.caregiverEmail);
+  dlgAlarm.innerHTML = `<div class="dlg alarm ${late ? 'is-late' : ''}">
+    <p class="alarm-kicker">${late ? `${duration((Date.now() - at(d.key, d.time)) / 60000)} di ritardo` : `È ora del farmaco, ${fmtTime(d.time)}`}</p>
+    <div class="alarm-head">${pillSVG(med.shape, med.color, 88)}<div><h2 id="alarm-title">${esc(med.name)}</h2><p class="med-dose">${esc(med.dosage)}</p></div></div>
+    ${tagsHTML(med)}
+    ${med.instructions ? `<p class="instr">${esc(med.instructions)}</p>` : ''}
+    <div class="dose-actions">
+      <button class="btn btn-go btn-huge" data-action="take" data-id="${d.id}" autofocus>${ICON.check} Ho preso la dose</button>
+      <div class="row2"><button class="btn" data-action="listen" data-id="${d.id}">${ICON.speaker} Ascolta</button><button class="btn" data-action="snooze" data-id="${d.id}">${ICON.clock} Ricordamelo dopo</button></div>
+      ${contact ? contactHTML(d) : ''}
+      <button class="btn btn-quiet" data-action="close-alarm">Chiudi</button>
+    </div></div>`;
+  dlgAlarm.setAttribute('aria-labelledby', 'alarm-title');
+  if (!dlgAlarm.open) dlgAlarm.showModal();
+  document.title = `È ora di ${med.name}`;
+  fx.vibrate([400, 200, 400, 200, 400]);
+  fx.chime('alarm');
+  setTimeout(() => fx.speak(reminderText(med)), 900);
+  if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+    const title = `Time for ${med.name}`, opts = {body: [med.dosage, med.instructions].filter(Boolean).join('. '), tag: d.id, requireInteraction: true, icon: 'icons/icon-192.png'};
+    const fallback = () => { try { new Notification(title, opts); } catch (e) {} };
+    if (navigator.serviceWorker?.controller) navigator.serviceWorker.ready.then(r => r.showNotification(title, opts)).catch(fallback); else fallback();
+  }
+}
+function closeAlarmIf(id) { if (alarmId === id && dlgAlarm.open) dlgAlarm.close(); }
+dlgAlarm.addEventListener('close', () => { document.title = baseTitle; fx.stop(); setTimeout(nextAlarm, 400); });
+
+/* ---------- summary, report, files ---------- */
+function summaryText() {
+  const now = new Date(), key = dateKey(now), st = dayStats(key, now), s = state.settings;
+  const lines = [`PillTracker${s.patientName ? ' per ' + s.patientName : ''}, ${now.toLocaleDateString('it-IT', {weekday: 'long', day: 'numeric', month: 'long'})}`];
+  lines.push(st.due ? `Presi finora: ${st.taken} su ${st.due} (${st.pct}%)` : 'Nessuna dose prevista per ora');
+  for (const d of dosesFor(key)) {
+    const x = statusOf(d, now);
+    const label = x === 'taken' ? `presa ${d.log?.takenAt ? 'alle ' + fmtClock(new Date(d.log.takenAt)) : ''}` : x === 'late' ? 'NON PRESA, in ritardo' : x === 'due' ? 'da prendere ora' : x === 'snoozed' ? 'promemoria impostato' : 'più tardi oggi';
+    lines.push(`${x === 'taken' ? '✓' : x === 'late' ? '✗' : '·'} ${fmtTime(d.time)} ${d.med.name}, ${d.med.dosage}: ${label}`);
+  }
+  const low = state.meds.filter(m => m.active !== false && (+m.stock || 0) <= (+m.threshold || 0));
+  if (low.length) lines.push('Da riordinare: ' + low.map(m => `${m.name} (${m.stock} rimaste)`).join(', '));
+  return lines.join('\n');
+}
+async function shareDay() {
+  const text = summaryText(), s = state.settings;
+  if (navigator.share) { try { await navigator.share({title: 'Riepilogo PillTracker', text}); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  if (s.caregiverPhone) { location.href = `sms:${s.caregiverPhone.replace(/[^\d+]/g, '')}?&body=${encodeURIComponent(text)}`; return; }
+  if (s.caregiverEmail) { location.href = `mailto:${encodeURIComponent(s.caregiverEmail)}?subject=${encodeURIComponent('Riepilogo PillTracker')}&body=${encodeURIComponent(text)}`; return; }
+  try { await navigator.clipboard.writeText(text); showToast('Riepilogo copiato. Incollalo in un messaggio.'); } catch (e) { showToast('La condivisione non è disponibile su questo dispositivo.'); }
+}
+function download(name, text, mime) {
+  try {
+    const url = URL.createObjectURL(new Blob([text], {type: mime}));
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return true;
+  } catch (e) { showToast('Questo browser non ha potuto salvare il file.'); return false; }
+}
+const icsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+function buildICS() {
+  const start = dateKey().replace(/-/g, ''), stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PillTracker//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Farmaci'];
+  for (const m of state.meds.filter(m => m.active !== false)) for (const t of m.times || []) {
+    L.push('BEGIN:VEVENT', `UID:${m.id}-${t.replace(':', '')}@pilltracker`, `DTSTAMP:${stamp}`, `DTSTART:${start}T${t.replace(':', '')}00`, 'DURATION:PT10M', 'RRULE:FREQ=DAILY',
+      `SUMMARY:${icsEsc(`Prendi ${m.name}, ${m.dosage}`)}`, `DESCRIPTION:${icsEsc(m.instructions)}`,
+      'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc('Prendi ' + m.name)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  return L.join('\r\n');
+}
+function printReport() {
+  const now = new Date(), s = state.settings;
+  const days = [...Array(7)].map((_, i) => addDays(now, i - 6));
+  const rows = days.map(d => { const k = dateKey(d), st = dayStats(k, now);
+    return `<tr><td>${d.toLocaleDateString('it-IT', {weekday: 'short', day: 'numeric', month: 'short'})}</td><td>${st.taken} su ${st.due}</td><td>${st.pct == null ? '' : st.pct + '%'}</td><td>${st.missed.map(x => `${esc(x.med.name)} ${fmtTime(x.time)}`).join('<br>') || 'Nessuna'}</td></tr>`; }).join('');
+  const meds = state.meds.filter(m => m.active !== false).map(m => `<tr><td>${esc(m.name)}</td><td>${esc(m.dosage)}</td><td>${(m.times || []).map(fmtTime).join(', ')}</td><td>${esc(m.instructions)}</td><td>${m.stock}</td></tr>`).join('');
+  $('#print-report').innerHTML = `<h1>Report dei farmaci</h1>
+    <p>${s.patientName ? esc(s.patientName) + ', ' : ''}${days[0].toLocaleDateString('it-IT')} al ${days[6].toLocaleDateString('it-IT')}</p>
+    <h2>Dosi prese</h2><table><thead><tr><th>Giorno</th><th>Prese</th><th>Percentuale</th><th>Non registrate</th></tr></thead><tbody>${rows}</tbody></table>
+    <h2>Farmaci attuali</h2><table><thead><tr><th>Farmaco</th><th>Dose</th><th>Orari</th><th>Istruzioni</th><th>Scorte</th></tr></thead><tbody>${meds}</tbody></table>
+    <p>Registrato con PillTracker. Questo report mostra ciò che è stato registrato nell’app e non è una cartella clinica.</p>`;
+  window.print();
+}
+
+/* ---------- navigation ---------- */
+function openCaregiver() {
+  fx.stop();
+  if (state.settings.pin) { $('#pin-input').value = ''; $('#pin-error').textContent = ''; $('#dlg-pin').showModal(); return; }
+  enterCaregiver();
+}
+function enterCaregiver() { view = 'caregiver'; cgTab = 'today'; editing = null; render(); $('#cg-title')?.focus(); window.scrollTo(0, 0); }
+
+/* ---------- events ---------- */
+document.addEventListener('pointerdown', () => fx.unlock(), {once: true});
+document.addEventListener('keydown', () => fx.unlock(), {once: true});
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-action]'); if (!b) return;
+  const id = b.dataset.id;
+  switch (b.dataset.action) {
+    case 'take': markTaken(id); break;
+    case 'listen': { const d = findDose(id); if (d && !fx.speak(reminderText(d.med))) showToast('La lettura ad alta voce è disattivata o non disponibile su questo dispositivo.'); break; }
+    case 'snooze': snooze(id); break;
+    case 'focus': {
+      const d = findDose(id);
+      if (d?.log?.status === 'TAKEN') { const m = `${d.med.name} è stato preso alle ${fmtClock(new Date(d.log.takenAt))}.`; showToast(m); announce(m); break; }
+      focusId = id; render(); window.scrollTo({top: 0}); $('#dose-title')?.focus(); break;
+    }
+    case 'open-caregiver': openCaregiver(); break;
+    case 'back-patient': view = 'patient'; editing = null; render(); window.scrollTo(0, 0); break;
+    case 'tab': cgTab = b.dataset.tab; editing = null; render(); break;
+    case 'add-med': editing = 'new'; render(); $('#form-title')?.focus(); break;
+    case 'edit-med': editing = id; render(); $('#form-title')?.focus(); break;
+    case 'cancel-edit': editing = null; render(); break;
+    case 'toggle-med': { const m = state.meds.find(x => x.id === id); if (m) { m.active = m.active === false; if (m.active && !m.since) m.since = dateKey(); save(); render(); } break; }
+    case 'delete-med': { const m = state.meds.find(x => x.id === id); if (m && confirm(`Eliminare ${m.name}? Il suo storico non sarà più mostrato.`)) { state.meds = state.meds.filter(x => x.id !== id); save(); render(); showToast(`${m.name} eliminato.`); } break; }
+    case 'delete-samples': state.meds = state.meds.filter(m => !m.sample); save(); render(); showToast('Farmaci di esempio eliminati.'); break;
+    case 'add-time': { const box = $('#times'); const n = box.querySelectorAll('.time-row').length; box.insertAdjacentHTML('beforeend', timeRow('12:00', n)); box.querySelectorAll('input')[n]?.focus(); break; }
+    case 'remove-time': { const box = $('#times'); if (box.querySelectorAll('.time-row').length > 1) b.closest('.time-row').remove(); else showToast('Un farmaco deve avere almeno un orario.'); break; }
+    case 'share-day': shareDay(); break;
+    case 'print': printReport(); break;
+    case 'ics': if (!state.meds.some(m => m.active !== false)) { showToast('Aggiungi prima un farmaco.'); break; } if (download('pilltracker-promemoria.ics', buildICS(), 'text/calendar')) showToast('File del calendario salvato. Aprilo per aggiungere i promemoria.'); break;
+    case 'share-plan': openShare(); break;
+    case 'share-close': $('#dlg-share').close(); break;
+    case 'copy-link': { const v = $('#share-link').value; const fallback = () => { $('#share-link').select(); showToast('Seleziona il link e copialo.'); }; if (navigator.clipboard?.writeText) navigator.clipboard.writeText(v).then(() => showToast('Link copiato.'), fallback); else fallback(); break; }
+    case 'backup': if (download(`pilltracker-copia-${dateKey()}.json`, JSON.stringify(state, null, 2), 'application/json')) showToast('Copia salvata.'); break;
+    case 'restore': $('#restore-input').click(); break;
+    case 'clear-all': if (confirm('Eliminare tutti i farmaci, lo storico e le impostazioni da questo dispositivo? Non si può annullare.')) { try { localStorage.removeItem(KEY); } catch (e) {} state = load(); view = 'patient'; render(); $('#dlg-welcome').showModal(); } break;
+    case 'notif': if ('Notification' in window) Notification.requestPermission().then(() => render()); break;
+    case 'test-voice': if (!fx.speak('Ecco come suoneranno i promemoria.')) showToast('La lettura ad alta voce non è disponibile su questo dispositivo.'); break;
+    case 'close-alarm': dlgAlarm.close(); break;
+    case 'pin-cancel': $('#dlg-pin').close(); break;
+    case 'pin-forgot': if (confirm('Rimuovere il PIN di chi assiste? Farmaci e storico restano invariati. Puoi impostarne uno nuovo nelle Impostazioni.')) { state.settings.pin = ''; save(); $('#dlg-pin').close(); enterCaregiver(); showToast('PIN rimosso. Impostane uno nuovo nelle Impostazioni.'); } break;
+    case 'onboard-sample': state.meds = sampleMeds(); state.settings.onboarded = true; save(); $('#dlg-welcome').close(); render(); break;
+    case 'onboard-empty': state.settings.onboarded = true; save(); $('#dlg-welcome').close(); render(); break;
+  }
+});
+
+document.addEventListener('submit', e => {
+  if (e.target.id === 'pin-form') {
+    e.preventDefault();
+    if ($('#pin-input').value === state.settings.pin) { $('#dlg-pin').close(); enterCaregiver(); }
+    else { $('#pin-error').textContent = 'PIN non corretto. Riprova.'; $('#pin-input').select(); }
+  }
+  if (e.target.id === 'med-form') {
+    e.preventDefault();
+    const f = new FormData(e.target), err = $('#form-error');
+    const name = String(f.get('name') || '').trim();
+    const times = [...new Set(f.getAll('times').filter(Boolean))].sort();
+    if (!name) { err.textContent = 'Inserisci il nome del farmaco.'; $('#f-name').focus(); return; }
+    if (!times.length) { err.textContent = 'Aggiungi almeno un orario.'; return; }
+    const num = (k, def) => { const v = parseFloat(f.get(k)); return Number.isFinite(v) && v >= 0 ? v : def; };
+    const data = {name, dosage: String(f.get('dosage') || '').trim(), instructions: String(f.get('instructions') || '').trim(), times,
+      timing: f.getAll('timing'), shape: f.get('shape') || 'round', color: f.get('color') || 'white',
+      stock: num('stock', 0), units: num('units', 1) || 1, threshold: num('threshold', 0), critical: f.get('critical') === 'on'};
+    if (editing === 'new') state.meds.push({id: uid(), active: true, since: dateKey(), ...data});
+    else { const m = state.meds.find(x => x.id === editing); if (m) { Object.assign(m, data); delete m.sample; } }
+    save(); editing = null; render(); showToast(`${name} salvato.`);
+  }
+});
+
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.id === 'restore-input') {
+    const file = el.files?.[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const data = JSON.parse(r.result);
+        if (!Array.isArray(data.meds) || typeof data.logs !== 'object') throw new Error('bad');
+        if (!confirm('Sostituire tutto su questo dispositivo con questa copia?')) return;
+        state = {meds: data.meds, logs: data.logs || {}, settings: {...defaultSettings(), ...(data.settings || {}), onboarded: true}};
+        save(); render(); showToast('Copia ripristinata.');
+      } catch (x) { showToast('Questo file non è una copia di PillTracker.'); }
+      el.value = '';
+    };
+    r.readAsText(file); return;
+  }
+  const key = el.dataset.setting; if (!key) return;
+  let v = el.type === 'checkbox' ? el.checked : el.value;
+  if (['textScale', 'rate', 'lateMinutes'].includes(key)) v = parseFloat(v);
+  if (key === 'pin' && v && !/^\d{4,8}$/.test(v)) { showToast('Il PIN deve avere da 4 a 8 cifre.'); el.value = state.settings.pin; return; }
+  state.settings[key] = typeof v === 'string' ? v.trim() : v;
+  save(); applySettings();
+  if (key === 'keepAwake') { if (v) keepAwake(); else { wakeLock?.release?.(); wakeLock = null; } }
+  if (key === 'pin') showToast(v ? 'PIN salvato.' : 'PIN rimosso.');
+});
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { keepAwake(); tick(); } });
+
+/* ---------- share the plan with another device ---------- */
+const b64uEncode = text => {
+  const bytes = new TextEncoder().encode(text); let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+const b64uDecode = str => {
+  const bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+};
+function planPayload() {
+  const s = state.settings;
+  return {
+    v: 1,
+    meds: state.meds.filter(m => m.active !== false).map(m => ({id: m.id, n: m.name, d: m.dosage, u: m.units, i: m.instructions, s: m.shape, c: m.color, t: m.timing, ts: m.times, k: m.stock, th: m.threshold, cr: m.critical ? 1 : 0, sn: m.since})),
+    late: s.lateMinutes, pn: s.patientName, cg: s.caregiverName, cp: s.caregiverPhone, ce: s.caregiverEmail
+  };
+}
+function planLink() { return location.href.split('#')[0] + '#plan=' + b64uEncode(JSON.stringify(planPayload())); }
+function qrSVG(text) {
+  const q = qrcode(0, 'M'); q.addData(text); q.make();
+  const n = q.getModuleCount(), m = 3; let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n + 2 * m} ${n + 2 * m}" width="280" height="280" role="img" aria-label="Codice QR con il piano dei farmaci" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+function openShare() {
+  const url = planLink();
+  let img = '';
+  try { img = qrSVG(url); } catch (e) { img = ''; }
+  $('#share-qr').innerHTML = img || '<p>Questo piano è troppo lungo per un solo codice. Rimuovi i farmaci non più usati o chiedi aiuto.</p>';
+  $('#share-link').value = url;
+  $('#dlg-share').showModal();
+}
+function importFromHash() {
+  const m = location.hash.match(/^#plan=([A-Za-z0-9_-]+)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  let p = null;
+  try { p = JSON.parse(b64uDecode(m[1])); if (p.v !== 1 || !Array.isArray(p.meds)) p = null; } catch (e) { p = null; }
+  if (!p) { showToast('Non è stato possibile leggere questo codice. Chiedi a chi assiste di mostrarlo di nuovo.'); return; }
+  const count = p.meds.length;
+  const ok = confirm(`Caricare ${count} farmac${count === 1 ? 'o' : 'i'} da chi assiste? I farmaci su questo dispositivo saranno sostituiti. Lo storico delle dosi passate viene mantenuto.`);
+  if (!ok) return;
+  state.meds = p.meds.map(x => ({id: x.id, name: x.n, dosage: x.d, units: x.u, instructions: x.i, shape: x.s, color: x.c, timing: x.t, times: x.ts, stock: x.k, threshold: x.th, critical: !!x.cr, active: true, since: x.sn || dateKey()}));
+  state.settings = {...state.settings, lateMinutes: p.late ?? state.settings.lateMinutes, patientName: p.pn ?? '', caregiverName: p.cg ?? '', caregiverPhone: p.cp ?? '', caregiverEmail: p.ce ?? '', onboarded: true};
+  save();
+  showToast('Piano caricato. I farmaci su questo dispositivo sono aggiornati.');
+}
+
+/* ---------- start ---------- */
+importFromHash();
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+fx.init();
+render();
+if (!state.settings.onboarded) $('#dlg-welcome').showModal();
+keepAwake();
+setInterval(tick, 15000);
+setTimeout(tick, 1500);
+})();
+</script>
+</body>
+</html>
